@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Client, NewClient } from '../domain/clients';
+import type { InvokeFn } from './tauriEventRepository';
 import { createTauriClientRepository } from './tauriClientRepository';
 
 const client: Client = {
@@ -15,6 +16,12 @@ const client: Client = {
   updatedAt: '2026-09-11T00:00:00Z',
 };
 
+const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...clientInput } = client;
+
+function asInvokeFn(mock: ReturnType<typeof vi.fn>): InvokeFn {
+  return mock as unknown as InvokeFn;
+}
+
 describe('createTauriClientRepository', () => {
   it('maps list, create and remove to Tauri commands', async () => {
     const invoke = vi.fn(async (command: string) => {
@@ -22,11 +29,8 @@ describe('createTauriClientRepository', () => {
       if (command === 'clients_create') return client;
       return undefined;
     });
-    const repository = createTauriClientRepository(invoke);
-    const input: NewClient = { ...client };
-    delete (input as Partial<Client>).id;
-    delete (input as Partial<Client>).createdAt;
-    delete (input as Partial<Client>).updatedAt;
+    const repository = createTauriClientRepository(asInvokeFn(invoke));
+    const input: NewClient = clientInput;
 
     await expect(repository.list()).resolves.toEqual([client]);
     await expect(repository.create(input)).resolves.toEqual(client);
@@ -43,14 +47,18 @@ describe('createTauriClientRepository', () => {
       if (command === 'clients_replace') return { ...client, memo: '변경' };
       return undefined;
     });
-    const repository = createTauriClientRepository(invoke);
+    const repository = createTauriClientRepository(asInvokeFn(invoke));
 
     await repository.update(client.id, { memo: '변경' });
 
     expect(invoke).toHaveBeenNthCalledWith(1, 'clients_get', { id: client.id });
     expect(invoke).toHaveBeenNthCalledWith(2, 'clients_replace', {
       id: client.id,
-      client: expect.not.objectContaining({ id: expect.anything(), createdAt: expect.anything(), updatedAt: expect.anything() }),
+      client: expect.not.objectContaining({
+        id: expect.anything(),
+        createdAt: expect.anything(),
+        updatedAt: expect.anything(),
+      }),
     });
   });
 
