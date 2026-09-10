@@ -10,6 +10,9 @@ const makeEvent = (
   categoryKey: CalendarEvent['categoryKey'],
 ): CalendarEvent => ({
   id,
+  projectId: id === '1' ? 'project-1' : null,
+  projectName: id === '1' ? 'A철도 차량기지 건설공사' : null,
+  clientName: id === '1' ? '국가철도공단' : null,
   categoryId: categoryKey,
   categoryKey,
   categoryName,
@@ -19,6 +22,8 @@ const makeEvent = (
   allDay: false,
   status: 'planned',
   priority: id === '1' ? 'critical' : 'normal',
+  assignee: id === '1' ? '담당자' : null,
+  memo: id === '1' ? '제출서류 최종 검토' : null,
   isPinned: id === '1',
   createdAt: '2026-09-01T09:00:00+09:00',
   updatedAt: '2026-09-01T09:00:00+09:00',
@@ -68,5 +73,28 @@ describe('CalendarPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '다음 달' }));
     expect(await screen.findByRole('heading', { name: '2026년 10월' })).toBeInTheDocument();
+  });
+
+  test('opens event details in a side panel while keeping the month calendar visible', async () => {
+    render(
+      <CalendarPage
+        repository={createMemoryEventRepository(events)}
+        initialDate={new Date(2026, 8, 10)}
+        now={new Date('2026-09-10T09:00:00+09:00')}
+      />,
+    );
+
+    const day = await screen.findByLabelText('2026-09-10');
+    fireEvent.click(within(day).getByRole('button', { name: '일정: PQ 제출' }));
+
+    const panel = await screen.findByRole('complementary', { name: '일정 상세' });
+    expect(within(panel).getByText('PQ 제출')).toBeInTheDocument();
+    expect(within(panel).getByText('A철도 차량기지 건설공사')).toBeInTheDocument();
+    expect(within(panel).getByText('국가철도공단')).toBeInTheDocument();
+    expect(within(panel).getByText('제출서류 최종 검토')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '2026년 9월' })).toBeInTheDocument();
+
+    fireEvent.click(within(panel).getByRole('button', { name: '상세 닫기' }));
+    expect(screen.queryByRole('complementary', { name: '일정 상세' })).not.toBeInTheDocument();
   });
 });
