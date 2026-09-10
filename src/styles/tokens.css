@@ -1,0 +1,66 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, Pretendard, "Noto Sans KR", "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+
+  --bg-app: #f4f6f9;
+  --bg-sidebar: #f8f9fb;
+  --surface: #ffffff;
+  --surface-soft: #f7f8fa;
+  --surface-hover: #f0f2f6;
+  --text-strong: #171a21;
+  --text: #363b46;
+  --text-muted: #7a8291;
+  --border: #e5e8ee;
+  --border-strong: #d8dde6;
+  --accent: #3157d5;
+  --accent-soft: #eef2ff;
+  --accent-contrast: #ffffff;
+  --danger: #c7353f;
+  --warning: #b66a00;
+  --success: #247a4a;
+  --shadow-float: 0 14px 40px rgba(20, 28, 45, 0.12);
+
+  --category-notice: #3974da;
+  --category-pq: #7454d4;
+  --category-soq: #7454d4;
+  --category-site-briefing: #178aa2;
+  --category-design: #5265c8;
+  --category-design-review: #c46a12;
+  --category-price-bid: #c9434c;
+  --category-opening: #c9434c;
+  --category-planned-order: #32865b;
+  --category-meeting: #727987;
+  --category-report: #b17a17;
+  --category-submission: #b17a17;
+  --category-other: #727987;
+
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg-app: #12151b;
+    --bg-sidebar: #161a21;
+    --surface: #1b2028;
+    --surface-soft: #202630;
+    --surface-hover: #282f3a;
+    --text-strong: #f5f7fb;
+    --text: #d6dbe5;
+    --text-muted: #9099a8;
+    --border: #2d3440;
+    --border-strong: #3a4351;
+    --accent: #7e99ff;
+    --accent-soft: #242e52;
+    --accent-contrast: #10141c;
+    --danger: #ff858c;
+    --warning: #e6a64a;
+    --success: #66c995;
+    --shadow-float: 0 18px 44px rgba(0, 0, 0, 0.35);
+  }
+}

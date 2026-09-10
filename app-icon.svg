@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="CalendarForwork app icon">
+  <rect width="512" height="512" rx="104" fill="#23272f"/>
+  <rect x="68" y="98" width="376" height="346" rx="58" fill="#fafaf8"/>
+  <path d="M68 156c0-32 26-58 58-58h260c32 0 58 26 58 58v72H68v-72Z" fill="#e55b3f"/>
+  <rect x="144" y="54" width="34" height="100" rx="17" fill="#fafaf8"/>
+  <rect x="334" y="54" width="34" height="100" rx="17" fill="#fafaf8"/>
+  <g fill="#23272f">
+    <rect x="116" y="270" width="50" height="50" rx="11"/>
+    <rect x="196" y="270" width="50" height="50" rx="11"/>
+    <rect x="276" y="270" width="50" height="50" rx="11"/>
+    <rect x="356" y="270" width="50" height="50" rx="11"/>
+    <rect x="116" y="350" width="50" height="50" rx="11"/>
+    <rect x="196" y="350" width="50" height="50" rx="11"/>
+    <rect x="356" y="350" width="50" height="50" rx="11"/>
+  </g>
+  <rect x="276" y="350" width="50" height="50" rx="11" fill="#e55b3f"/>
+</svg>
