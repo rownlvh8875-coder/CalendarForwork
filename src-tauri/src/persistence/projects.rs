@@ -1,3 +1,223 @@
+use crate::persistence::{
+    master_types::{NewProjectRecord, ProjectRecord, ProjectStageRecord},
+    Database, PersistenceResult,
+};
+use rusqlite::{params, Connection, OptionalExtension, Row};
+use uuid::Uuid;
+
+const PROJECT_SELECT: &str = "
+SELECT
+  p.id, p.project_code, p.name, p.client_id, c.name AS client_name,
+  p.project_type, p.region, p.contract_type, p.estimated_cost,
+  p.current_stage, p.priority, p.assignee, p.expected_bid_date,
+  p.description, p.memo, p.url, p.archived, p.created_at, p.updated_at
+FROM projects p
+LEFT JOIN clients c ON c.id = p.client_id";
+
+fn map_project_row(row: &Row<'_>) -> rusqlite::Result<ProjectRecord> {
+    Ok(ProjectRecord {
+        id: row.get(0)?,
+        project: NewProjectRecord {
+            project_code: row.get(1)?,
+            name: row.get(2)?,
+            client_id: row.get(3)?,
+            project_type: row.get(5)?,
+            region: row.get(6)?,
+            contract_type: row.get(7)?,
+            estimated_cost: row.get(8)?,
+            current_stage: row.get(9)?,
+            priority: row.get(10)?,
+            assignee: row.get(11)?,
+            expected_bid_date: row.get(12)?,
+            description: row.get(13)?,
+            memo: row.get(14)?,
+            url: row.get(15)?,
+            archived: row.get::<_, i64>(16)? != 0,
+        },
+        client_name: row.get(4)?,
+        created_at: row.get(17)?,
+        updated_at: row.get(18)?,
+    })
+}
+
+fn get_project_from_connection(
+    connection: &Connection,
+    id: &str,
+) -> rusqlite::Result<Option<ProjectRecord>> {
+    connection
+        .query_row(
+            &format!("{PROJECT_SELECT} WHERE p.id = ?1"),
+            [id],
+            map_project_row,
+        )
+        .optional()
+}
+
+impl Database {
+    pub fn list_project_stages(&self) -> PersistenceResult<Vec<ProjectStageRecord>> {
+        let connection = self.lock()?;
+        let mut statement = connection.prepare(
+            "SELECT key, name, sort_order, is_active
+             FROM project_stages
+             WHERE is_active = 1
+             ORDER BY sort_order ASC, key ASC",
+        )?;
+        let rows = statement.query_map([], |row| {
+            Ok(ProjectStageRecord {
+                key: row.get(0)?,
+                name: row.get(1)?,
+                sort_order: row.get(2)?,
+                is_active: row.get::<_, i64>(3)? != 0,
+            })
+        })?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    pub fn list_projects(&self, include_archived: bool) -> PersistenceResult<Vec<ProjectRecord>> {
+        let connection = self.lock()?;
+        let where_clause = if include_archived { "" } else { "WHERE p.archived = 0" };
+        let sql = format!(
+            "{PROJECT_SELECT}
+             {where_clause}
+             ORDER BY
+               p.archived ASC,
+               CASE WHEN p.expected_bid_date IS NULL OR p.expected_bid_date = '' THEN 1 ELSE 0 END ASC,
+               p.expected_bid_date ASC,
+               CASE p.priority
+                 WHEN 'critical' THEN 0
+                 WHEN 'high' THEN 1
+                 WHEN 'normal' THEN 2
+                 WHEN 'low' THEN 3
+                 ELSE 4
+               END ASC,
+               p.name COLLATE NOCASE ASC,
+               p.created_at ASC,
+               p.id ASC"
+        );
+        let mut statement = connection.prepare(&sql)?;
+        let rows = statement.query_map([], map_project_row)?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    pub fn get_project(&self, id: &str) -> PersistenceResult<Option<ProjectRecord>> {
+        let connection = self.lock()?;
+        Ok(get_project_from_connection(&connection, id)?)
+    }
+
+    pub fn create_project(&self, input: NewProjectRecord) -> PersistenceResult<ProjectRecord> {
+        let id = Uuid::new_v4().to_string();
+        let connection = self.lock()?;
+        connection.execute(
+            "INSERT INTO projects (
+                id, project_code, name, client_id, project_type, region, contract_type,
+                estimated_cost, current_stage, priority, assignee, expected_bid_date,
+                description, memo, url, archived, created_at, updated_at
+             ) VALUES (
+                ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
+                ?13, ?14, ?15, ?16,
+                strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+                strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+             )",
+            params![
+                id,
+                input.project_code.as_deref(),
+                input.name.as_str(),
+                input.client_id.as_deref(),
+                input.project_type.as_deref(),
+                input.region.as_deref(),
+                input.contract_type.as_deref(),
+                input.estimated_cost,
+                input.current_stage.as_str(),
+                input.priority.as_str(),
+                input.assignee.as_deref(),
+                input.expected_bid_date.as_deref(),
+                input.description.as_deref(),
+                input.memo.as_deref(),
+                input.url.as_deref(),
+                input.archived as i64,
+            ],
+        )?;
+
+        get_project_from_connection(&connection, &id)?
+            .ok_or(rusqlite::Error::QueryReturnedNoRows.into())
+    }
+
+    pub fn replace_project(
+        &self,
+        id: &str,
+        input: NewProjectRecord,
+    ) -> PersistenceResult<ProjectRecord> {
+        let connection = self.lock()?;
+        let changed = connection.execute(
+            "UPDATE projects SET
+                project_code = ?1,
+                name = ?2,
+                client_id = ?3,
+                project_type = ?4,
+                region = ?5,
+                contract_type = ?6,
+                estimated_cost = ?7,
+                current_stage = ?8,
+                priority = ?9,
+                assignee = ?10,
+                expected_bid_date = ?11,
+                description = ?12,
+                memo = ?13,
+                url = ?14,
+                archived = ?15,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+             WHERE id = ?16",
+            params![
+                input.project_code.as_deref(),
+                input.name.as_str(),
+                input.client_id.as_deref(),
+                input.project_type.as_deref(),
+                input.region.as_deref(),
+                input.contract_type.as_deref(),
+                input.estimated_cost,
+                input.current_stage.as_str(),
+                input.priority.as_str(),
+                input.assignee.as_deref(),
+                input.expected_bid_date.as_deref(),
+                input.description.as_deref(),
+                input.memo.as_deref(),
+                input.url.as_deref(),
+                input.archived as i64,
+                id,
+            ],
+        )?;
+
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows.into());
+        }
+
+        get_project_from_connection(&connection, id)?
+            .ok_or(rusqlite::Error::QueryReturnedNoRows.into())
+    }
+
+    pub fn set_project_archived(
+        &self,
+        id: &str,
+        archived: bool,
+    ) -> PersistenceResult<ProjectRecord> {
+        let connection = self.lock()?;
+        let changed = connection.execute(
+            "UPDATE projects
+             SET archived = ?1,
+                 updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+             WHERE id = ?2",
+            params![archived as i64, id],
+        )?;
+
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows.into());
+        }
+
+        get_project_from_connection(&connection, id)?
+            .ok_or(rusqlite::Error::QueryReturnedNoRows.into())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::persistence::{
