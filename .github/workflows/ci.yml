@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - feat/calendar-ui-mvp
+      - "feat/**"
   pull_request:
     branches:
       - main
@@ -35,5 +35,7 @@ jobs:
         run: npm install
       - name: Generate Tauri icons
         run: npm run icon:generate
+      - name: Test SQLite persistence
+        run: cargo test --manifest-path src-tauri/Cargo.toml
       - name: Check Tauri Rust crate
         run: cargo check --manifest-path src-tauri/Cargo.toml
