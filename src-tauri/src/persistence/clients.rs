@@ -1,3 +1,131 @@
+use crate::persistence::{
+    master_types::{ClientRecord, NewClientRecord},
+    Database, PersistenceResult,
+};
+use rusqlite::{params, Connection, OptionalExtension, Row};
+use uuid::Uuid;
+
+const CLIENT_SELECT: &str = "
+SELECT id, name, category, department, contact_name, phone, email, memo, created_at, updated_at
+FROM clients";
+
+fn map_client_row(row: &Row<'_>) -> rusqlite::Result<ClientRecord> {
+    Ok(ClientRecord {
+        id: row.get(0)?,
+        client: NewClientRecord {
+            name: row.get(1)?,
+            category: row.get(2)?,
+            department: row.get(3)?,
+            contact_name: row.get(4)?,
+            phone: row.get(5)?,
+            email: row.get(6)?,
+            memo: row.get(7)?,
+        },
+        created_at: row.get(8)?,
+        updated_at: row.get(9)?,
+    })
+}
+
+fn get_client_from_connection(
+    connection: &Connection,
+    id: &str,
+) -> rusqlite::Result<Option<ClientRecord>> {
+    connection
+        .query_row(
+            &format!("{CLIENT_SELECT} WHERE id = ?1"),
+            [id],
+            map_client_row,
+        )
+        .optional()
+}
+
+impl Database {
+    pub fn list_clients(&self) -> PersistenceResult<Vec<ClientRecord>> {
+        let connection = self.lock()?;
+        let mut statement = connection.prepare(&format!(
+            "{CLIENT_SELECT} ORDER BY name COLLATE NOCASE ASC, created_at ASC, id ASC"
+        ))?;
+        let rows = statement.query_map([], map_client_row)?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    pub fn get_client(&self, id: &str) -> PersistenceResult<Option<ClientRecord>> {
+        let connection = self.lock()?;
+        Ok(get_client_from_connection(&connection, id)?)
+    }
+
+    pub fn create_client(&self, input: NewClientRecord) -> PersistenceResult<ClientRecord> {
+        let id = Uuid::new_v4().to_string();
+        let connection = self.lock()?;
+        connection.execute(
+            "INSERT INTO clients (
+                id, name, category, department, contact_name, phone, email, memo,
+                created_at, updated_at
+             ) VALUES (
+                ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8,
+                strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+                strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+             )",
+            params![
+                id,
+                input.name.as_str(),
+                input.category.as_deref(),
+                input.department.as_deref(),
+                input.contact_name.as_deref(),
+                input.phone.as_deref(),
+                input.email.as_deref(),
+                input.memo.as_deref(),
+            ],
+        )?;
+
+        get_client_from_connection(&connection, &id)?
+            .ok_or(rusqlite::Error::QueryReturnedNoRows.into())
+    }
+
+    pub fn replace_client(
+        &self,
+        id: &str,
+        input: NewClientRecord,
+    ) -> PersistenceResult<ClientRecord> {
+        let connection = self.lock()?;
+        let changed = connection.execute(
+            "UPDATE clients SET
+                name = ?1,
+                category = ?2,
+                department = ?3,
+                contact_name = ?4,
+                phone = ?5,
+                email = ?6,
+                memo = ?7,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+             WHERE id = ?8",
+            params![
+                input.name.as_str(),
+                input.category.as_deref(),
+                input.department.as_deref(),
+                input.contact_name.as_deref(),
+                input.phone.as_deref(),
+                input.email.as_deref(),
+                input.memo.as_deref(),
+                id,
+            ],
+        )?;
+
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows.into());
+        }
+
+        get_client_from_connection(&connection, id)?
+            .ok_or(rusqlite::Error::QueryReturnedNoRows.into())
+    }
+
+    pub fn remove_client(&self, id: &str) -> PersistenceResult<()> {
+        let connection = self.lock()?;
+        connection.execute("DELETE FROM clients WHERE id = ?1", [id])?;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::persistence::{master_types::NewClientRecord, Database};
