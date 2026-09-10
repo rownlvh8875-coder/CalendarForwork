@@ -30,6 +30,17 @@ pub fn run() {
             commands::events::events_create,
             commands::events::events_replace,
             commands::events::events_remove,
+            commands::clients::clients_list,
+            commands::clients::clients_get,
+            commands::clients::clients_create,
+            commands::clients::clients_replace,
+            commands::clients::clients_remove,
+            commands::projects::project_stages_list,
+            commands::projects::projects_list,
+            commands::projects::projects_get,
+            commands::projects::projects_create,
+            commands::projects::projects_replace,
+            commands::projects::projects_set_archived,
         ])
         .run(tauri::generate_context!())
         .expect("error while running CalendarForwork");
