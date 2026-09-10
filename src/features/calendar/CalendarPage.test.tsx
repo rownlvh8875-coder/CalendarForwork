@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { CalendarEvent } from '../../domain/calendar';
 import { createMemoryEventRepository } from '../../repositories/memoryEventRepository';
 import { CalendarPage } from './CalendarPage';
@@ -14,8 +14,8 @@ const makeEvent = (
   categoryKey,
   categoryName,
   title,
-  startAt: `2026-09-10T09:00:00+09:00`,
-  deadlineAt: `2026-09-10T17:00:00+09:00`,
+  startAt: '2026-09-10T09:00:00+09:00',
+  deadlineAt: id === '1' ? '2026-09-10T17:00:00+09:00' : null,
   allDay: false,
   status: 'planned',
   priority: id === '1' ? 'critical' : 'normal',
@@ -66,7 +66,7 @@ describe('CalendarPage', () => {
       />,
     );
 
-    screen.getByRole('button', { name: '다음 달' }).click();
+    fireEvent.click(screen.getByRole('button', { name: '다음 달' }));
     expect(await screen.findByRole('heading', { name: '2026년 10월' })).toBeInTheDocument();
   });
 });
