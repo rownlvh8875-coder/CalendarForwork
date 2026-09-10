@@ -4,6 +4,7 @@ import { createSampleEvents } from '../data/sampleData';
 import { toDateKey } from '../domain/date';
 import { CalendarPage } from '../features/calendar/CalendarPage';
 import { QuickEventDialog } from '../features/events/QuickEventDialog';
+import { TodayPage } from '../features/today/TodayPage';
 import { createMemoryEventRepository } from '../repositories/memoryEventRepository';
 
 const viewCopy: Record<AppView, { title: string; subtitle: string }> = {
@@ -17,16 +18,41 @@ const viewCopy: Record<AppView, { title: string; subtitle: string }> = {
 };
 
 export function App() {
-  const repository = useMemo(() => createMemoryEventRepository(createSampleEvents(new Date())), []);
+  const appNow = useMemo(() => new Date(), []);
+  const repository = useMemo(() => createMemoryEventRepository(createSampleEvents(appNow)), [appNow]);
   const [activeView, setActiveView] = useState<AppView>('calendar');
   const [quickAddDateKey, setQuickAddDateKey] = useState<string | null>(null);
   const [calendarRevision, setCalendarRevision] = useState(0);
   const copy = viewCopy[activeView];
 
-  const openQuickAdd = (dateKey = toDateKey(new Date())) => {
+  const openQuickAdd = (dateKey = toDateKey(appNow)) => {
     setActiveView('calendar');
     setQuickAddDateKey(dateKey);
   };
+
+  let content;
+  if (activeView === 'calendar') {
+    content = (
+      <CalendarPage
+        repository={repository}
+        initialDate={appNow}
+        now={appNow}
+        refreshKey={calendarRevision}
+        onSelectDay={openQuickAdd}
+      />
+    );
+  } else if (activeView === 'today') {
+    content = <TodayPage repository={repository} now={appNow} />;
+  } else {
+    content = (
+      <div className="empty-view">
+        <div className="empty-view-copy">
+          <h2>{copy.title}</h2>
+          <p>{copy.subtitle}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">
@@ -57,20 +83,7 @@ export function App() {
         </header>
 
         <section className="workspace-content" aria-label={`${copy.title} 화면`}>
-          {activeView === 'calendar' ? (
-            <CalendarPage
-              repository={repository}
-              refreshKey={calendarRevision}
-              onSelectDay={openQuickAdd}
-            />
-          ) : (
-            <div className="empty-view">
-              <div className="empty-view-copy">
-                <h2>{copy.title}</h2>
-                <p>{copy.subtitle}</p>
-              </div>
-            </div>
-          )}
+          {content}
         </section>
       </main>
 
