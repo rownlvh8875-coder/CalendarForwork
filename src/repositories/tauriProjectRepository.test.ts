@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { NewProject, Project, ProjectStage } from '../domain/projects';
+import type { InvokeFn } from './tauriEventRepository';
 import { createTauriProjectRepository } from './tauriProjectRepository';
 
 const project: Project = {
@@ -25,6 +26,11 @@ const project: Project = {
 };
 
 const stages: ProjectStage[] = [{ key: 'interest', name: '관심사업', sortOrder: 10, isActive: true }];
+const { id: _id, clientName: _clientName, createdAt: _createdAt, updatedAt: _updatedAt, ...projectInput } = project;
+
+function asInvokeFn(mock: ReturnType<typeof vi.fn>): InvokeFn {
+  return mock as unknown as InvokeFn;
+}
 
 describe('createTauriProjectRepository', () => {
   it('maps list, stages, create and archive to Tauri commands', async () => {
@@ -35,12 +41,12 @@ describe('createTauriProjectRepository', () => {
       if (command === 'projects_set_archived') return { ...project, archived: true };
       return undefined;
     });
-    const repository = createTauriProjectRepository(invoke);
-    const { id: _id, clientName: _clientName, createdAt: _createdAt, updatedAt: _updatedAt, ...input } = project;
+    const repository = createTauriProjectRepository(asInvokeFn(invoke));
+    const input: NewProject = projectInput;
 
     await expect(repository.list(false)).resolves.toEqual([project]);
     await expect(repository.listStages()).resolves.toEqual(stages);
-    await expect(repository.create(input as NewProject)).resolves.toEqual(project);
+    await expect(repository.create(input)).resolves.toEqual(project);
     await expect(repository.setArchived(project.id, true)).resolves.toMatchObject({ archived: true });
 
     expect(invoke).toHaveBeenCalledWith('projects_list', { includeArchived: false });
@@ -55,7 +61,7 @@ describe('createTauriProjectRepository', () => {
       if (command === 'projects_replace') return { ...project, memo: '변경' };
       return undefined;
     });
-    const repository = createTauriProjectRepository(invoke);
+    const repository = createTauriProjectRepository(asInvokeFn(invoke));
 
     await repository.update(project.id, { memo: '변경' });
 
@@ -63,7 +69,10 @@ describe('createTauriProjectRepository', () => {
     expect(invoke).toHaveBeenNthCalledWith(2, 'projects_replace', {
       id: project.id,
       project: expect.not.objectContaining({
-        id: expect.anything(), clientName: expect.anything(), createdAt: expect.anything(), updatedAt: expect.anything(),
+        id: expect.anything(),
+        clientName: expect.anything(),
+        createdAt: expect.anything(),
+        updatedAt: expect.anything(),
       }),
     });
   });
