@@ -6,6 +6,7 @@ import './styles/app.css';
 import './styles/calendar.css';
 import './styles/events.css';
 import './styles/dialogs.css';
+import './styles/today.css';
 
 const rootElement = document.getElementById('root');
 
