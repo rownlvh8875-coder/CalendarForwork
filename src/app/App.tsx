@@ -1,5 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AppSidebar, type AppView } from '../components/AppSidebar';
+import { createSampleEvents } from '../data/sampleData';
+import { toDateKey } from '../domain/date';
+import { CalendarPage } from '../features/calendar/CalendarPage';
+import { QuickEventDialog } from '../features/events/QuickEventDialog';
+import { createMemoryEventRepository } from '../repositories/memoryEventRepository';
 
 const viewCopy: Record<AppView, { title: string; subtitle: string }> = {
   today: { title: '오늘', subtitle: '마감과 우선순위를 빠르게 확인합니다.' },
@@ -12,8 +17,16 @@ const viewCopy: Record<AppView, { title: string; subtitle: string }> = {
 };
 
 export function App() {
+  const repository = useMemo(() => createMemoryEventRepository(createSampleEvents(new Date())), []);
   const [activeView, setActiveView] = useState<AppView>('calendar');
+  const [quickAddDateKey, setQuickAddDateKey] = useState<string | null>(null);
+  const [calendarRevision, setCalendarRevision] = useState(0);
   const copy = viewCopy[activeView];
+
+  const openQuickAdd = (dateKey = toDateKey(new Date())) => {
+    setActiveView('calendar');
+    setQuickAddDateKey(dateKey);
+  };
 
   return (
     <div className="app-shell">
@@ -32,21 +45,43 @@ export function App() {
               <span>사업·일정 검색</span>
               <span className="keyboard-key">Ctrl K</span>
             </div>
-            <button type="button" className="primary-action" aria-label="일정 등록">
+            <button
+              type="button"
+              className="primary-action"
+              aria-label="일정 등록"
+              onClick={() => openQuickAdd()}
+            >
               + 일정 등록
             </button>
           </div>
         </header>
 
         <section className="workspace-content" aria-label={`${copy.title} 화면`}>
-          <div className="empty-view">
-            <div className="empty-view-copy">
-              <h2>{copy.title}</h2>
-              <p>{copy.subtitle}</p>
+          {activeView === 'calendar' ? (
+            <CalendarPage
+              repository={repository}
+              refreshKey={calendarRevision}
+              onSelectDay={openQuickAdd}
+            />
+          ) : (
+            <div className="empty-view">
+              <div className="empty-view-copy">
+                <h2>{copy.title}</h2>
+                <p>{copy.subtitle}</p>
+              </div>
             </div>
-          </div>
+          )}
         </section>
       </main>
+
+      {quickAddDateKey ? (
+        <QuickEventDialog
+          repository={repository}
+          initialDateKey={quickAddDateKey}
+          onClose={() => setQuickAddDateKey(null)}
+          onCreated={() => setCalendarRevision((revision) => revision + 1)}
+        />
+      ) : null}
     </div>
   );
 }
