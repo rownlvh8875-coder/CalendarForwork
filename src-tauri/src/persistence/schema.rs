@@ -32,6 +32,75 @@ CREATE INDEX IF NOT EXISTS idx_events_deadline_at ON events(deadline_at);
 CREATE INDEX IF NOT EXISTS idx_events_project_id ON events(project_id);
 "#;
 
+const MIGRATION_2: &str = r#"
+CREATE TABLE IF NOT EXISTS project_stages (
+  key TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  sort_order INTEGER NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1))
+);
+
+CREATE TABLE IF NOT EXISTS clients (
+  id TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  category TEXT NULL,
+  department TEXT NULL,
+  contact_name TEXT NULL,
+  phone TEXT NULL,
+  email TEXT NULL,
+  memo TEXT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS projects (
+  id TEXT PRIMARY KEY NOT NULL,
+  project_code TEXT NULL,
+  name TEXT NOT NULL,
+  client_id TEXT NULL REFERENCES clients(id) ON DELETE SET NULL,
+  project_type TEXT NULL,
+  region TEXT NULL,
+  contract_type TEXT NULL,
+  estimated_cost INTEGER NULL,
+  current_stage TEXT NOT NULL DEFAULT 'interest' REFERENCES project_stages(key),
+  priority TEXT NOT NULL DEFAULT 'normal',
+  assignee TEXT NULL,
+  expected_bid_date TEXT NULL,
+  description TEXT NULL,
+  memo TEXT NULL,
+  url TEXT NULL,
+  archived INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1)),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_project_code
+ON projects(project_code) WHERE project_code IS NOT NULL AND project_code <> '';
+CREATE INDEX IF NOT EXISTS idx_projects_client_id ON projects(client_id);
+CREATE INDEX IF NOT EXISTS idx_projects_stage ON projects(current_stage);
+CREATE INDEX IF NOT EXISTS idx_projects_expected_bid_date ON projects(expected_bid_date);
+CREATE INDEX IF NOT EXISTS idx_projects_archived ON projects(archived);
+CREATE INDEX IF NOT EXISTS idx_clients_name ON clients(name);
+
+INSERT OR IGNORE INTO project_stages(key, name, sort_order, is_active) VALUES
+  ('interest', '관심사업', 10, 1),
+  ('planning', '계획', 20, 1),
+  ('planned-order', '발주예정', 30, 1),
+  ('notice', '입찰공고', 40, 1),
+  ('pq', 'PQ', 50, 1),
+  ('soq', 'SOQ', 60, 1),
+  ('basic-design', '기본설계', 70, 1),
+  ('detailed-design', '실시설계', 80, 1),
+  ('design-review', '설계심의', 90, 1),
+  ('price-bid', '가격입찰', 100, 1),
+  ('opening', '개찰', 110, 1),
+  ('preferred-bidder', '우선협상', 120, 1),
+  ('won', '수주', 130, 1),
+  ('lost', '탈락', 140, 1),
+  ('hold', '보류', 150, 1),
+  ('closed', '종료', 160, 1);
+"#;
+
 pub fn migrate(connection: &Connection) -> rusqlite::Result<()> {
     let transaction = connection.unchecked_transaction()?;
 
@@ -53,6 +122,15 @@ pub fn migrate(connection: &Connection) -> rusqlite::Result<()> {
         transaction.execute(
             "INSERT INTO schema_migrations(version, applied_at)
              VALUES (1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+            [],
+        )?;
+    }
+
+    if current_version < 2 {
+        transaction.execute_batch(MIGRATION_2)?;
+        transaction.execute(
+            "INSERT INTO schema_migrations(version, applied_at)
+             VALUES (2, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
             [],
         )?;
     }
@@ -104,12 +182,12 @@ mod tests {
         let stage_count: i64 = connection
             .query_row("SELECT COUNT(*) FROM project_stages", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(stage_count, 17);
+        assert_eq!(stage_count, 16);
 
         migrate(&connection).unwrap();
         let stage_count_after_second_run: i64 = connection
             .query_row("SELECT COUNT(*) FROM project_stages", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(stage_count_after_second_run, 17);
+        assert_eq!(stage_count_after_second_run, 16);
     }
 }
