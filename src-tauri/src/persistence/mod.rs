@@ -2,6 +2,9 @@ pub mod events;
 pub mod schema;
 pub mod types;
 
+#[cfg(test)]
+mod upcoming_tests;
+
 use rusqlite::Connection;
 use std::{
     path::Path,
