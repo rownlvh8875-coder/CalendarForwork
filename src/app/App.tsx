@@ -32,7 +32,7 @@ export function App() {
               <span>사업·일정 검색</span>
               <span className="keyboard-key">Ctrl K</span>
             </div>
-            <button type="button" className="primary-action">
+            <button type="button" className="primary-action" aria-label="일정 등록">
               + 일정 등록
             </button>
           </div>
