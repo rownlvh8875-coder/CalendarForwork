@@ -2,20 +2,20 @@
 
 토목영업 업무에 특화된 달력형 일정관리 프로그램입니다.
 
-개인 Windows PC에서 먼저 사용할 수 있는 로컬 데스크톱 앱으로 시작하고, 이후 토목영업팀이 함께 사용하는 서버 기반 협업형 시스템으로 확장하는 것을 목표로 합니다.
+개인 Windows PC에서 먼저 사용하는 로컬 데스크톱 앱으로 시작하고, 이후 토목영업팀이 함께 사용하는 서버 기반 협업형 시스템으로 확장하는 것을 목표로 합니다.
 
 ## 현재 개발 단계
 
-**UI MVP 구현 단계**
+**UI MVP + SQLite 영구저장 단계**
 
-현재 `feat/calendar-ui-mvp` 브랜치에는 첫 번째 실행 가능한 UI vertical slice가 구현되어 있습니다.
+현재 UI vertical slice와 Tauri/SQLite 영구저장 계층이 구현되어 있습니다.
 
 ### 구현 완료
 
 - React + TypeScript + Vite 기반 UI
-- Tauri v2 Windows 데스크톱 shell 구성
+- Tauri v2 Windows 데스크톱 shell
 - Light / Dark 환경을 고려한 디자인 토큰
-- 고정형 좌측 업무 네비게이션과 상단 작업바
+- 좌측 업무 네비게이션과 상단 작업바
 - 42칸(6주) 고정 월간 캘린더
 - 이전 달 / 오늘 / 다음 달 이동
 - 일정 카테고리별 시각 구분
@@ -34,26 +34,84 @@
   - 긴급
   - 이번 주
   - 발주예정
-- 저장소 구현을 교체할 수 있는 `EventRepository` 인터페이스
-- 날짜 계산 / D-Day 계산을 UI와 분리한 domain 로직
-- Vitest + React Testing Library 기반 자동 테스트
-- GitHub Actions 프론트엔드 테스트 및 프로덕션 빌드 검증
+- `EventRepository` 추상화
+- Tauri runtime용 SQLite `EventRepository` adapter
+- 브라우저/Vitest용 Memory Repository
+- SQLite schema migration version 관리
+- 일정 생성 / 조회 / 기간조회 / 예정조회 / 수정 / 삭제 영구저장
+- 실제 SQLite 파일을 닫고 다시 열어도 일정이 유지되는 durability 자동 테스트
+- GitHub Actions 프론트엔드 + Windows Tauri/Rust 자동검증
 
-### 현재 저장 방식
+## 데이터 저장 방식
 
-현재 UI MVP는 **메모리 저장소와 예시 데이터**를 사용합니다.
+### 실제 Tauri 데스크톱 앱
 
-따라서 현재 등록한 일정은 프로그램을 다시 시작하면 초기화됩니다. 이 동작은 UI와 업무 흐름을 먼저 검증하기 위한 의도적인 MVP 단계이며, 실제 업무 데이터 영구 저장은 후속 단계에서 SQLite Repository로 교체합니다.
+실제 Windows Tauri 앱에서는 SQLite를 사용합니다.
 
-예시 사업명과 발주처는 UI 확인용 가상 데이터이며 실제 사업정보가 아닙니다.
+데이터베이스 파일은 Tauri의 앱 데이터 디렉터리 아래에 다음 이름으로 생성됩니다.
+
+```text
+app_data_dir()/calendarforwork.sqlite3
+```
+
+앱 identifier는 `com.calendarforwork.desktop`입니다.
+
+SQLite는 `rusqlite`의 `bundled` 기능을 사용하므로 별도의 SQLite DLL 설치를 전제로 하지 않습니다. DB open 시 foreign key를 활성화하고 파일 DB는 WAL journal mode와 `synchronous = NORMAL`을 사용합니다.
+
+실제 Tauri 앱의 빈 DB에는 UI 확인용 데모 일정을 자동 삽입하지 않습니다.
+
+### 브라우저 개발 / Vitest
+
+`npm run dev`로 브라우저에서 확인하거나 Vitest를 실행할 때는 기존 Memory Repository와 가상 데모 데이터를 사용합니다.
+
+이 모드의 데이터는 브라우저 새 실행 시 유지되지 않으며, SQLite 영구저장 동작을 의미하지 않습니다. 예시 사업명과 발주처는 UI 확인용 가상 데이터입니다.
+
+## 저장 계층 구조
+
+```text
+React UI
+   ↓
+Domain / Application Logic
+   ↓
+EventRepository Interface
+   ├─ Browser / Vitest → Memory Repository
+   └─ Tauri Desktop   → TauriEventRepository
+                           ↓ invoke()
+                       Rust Tauri Commands
+                           ↓
+                       SQLite Persistence
+                           ↓
+                       calendarforwork.sqlite3
+
+향후 팀 버전
+EventRepository → API Repository → Server → PostgreSQL
+```
+
+UI와 업무 규칙이 SQLite 구현에 직접 종속되지 않도록 구성하여 향후 팀 버전에서도 화면과 핵심 로직을 최대한 재사용합니다.
+
+## 현재 SQLite 일정 데이터
+
+현재 SQLite `events` 테이블은 다음 정보를 영구 저장합니다.
+
+- 사업 ID / 사업명 / 발주처명
+- 일정 분류 ID / key / 이름
+- 일정명 / 설명
+- 시작일시 / 종료일시 / 마감일시
+- 종일 일정 여부
+- 진행상태 / 중요도
+- 담당자 / 위치 / URL / 메모
+- 중요일정 Pin 여부
+- 완료시각
+- 생성시각 / 수정시각
+
+`deadline_at`과 일반 `start_at` / `end_at`은 별도 필드로 관리합니다.
 
 ## 아직 구현하지 않은 주요 기능
 
-- SQLite 영구 저장
 - 사업관리 Master / 사업별 Timeline
 - 발주처 Master
 - 주간 캘린더 / 목록형 일정 화면
-- 일정 수정
+- 일정 Full Form 편집 UX 고도화
 - Drag & Drop 일정 이동 및 Undo
 - 통합검색 / 상세 필터
 - Excel Import Wizard / Excel Export
@@ -64,26 +122,9 @@
 - 팀 계정 / 권한 / 서버 API / PostgreSQL / 동시사용
 - Google Calendar 등 외부 캘린더 연동
 
-## 기술 구조
-
-```text
-React UI
-   ↓
-Domain / Application Logic
-   ↓
-EventRepository Interface
-   ↓
-현재: Memory Repository
-향후: SQLite Repository
-   ↓
-팀 버전: API Repository → Server → PostgreSQL
-```
-
-UI와 업무 규칙이 SQLite 구현에 직접 종속되지 않도록 구성하여 향후 팀 버전에서도 화면과 핵심 로직을 최대한 재사용합니다.
-
 ## 로컬 실행
 
-### Frontend
+### Frontend 개발
 
 ```bash
 npm install
@@ -92,7 +133,7 @@ npm run dev
 
 개발 서버 기본 포트는 `1420`입니다.
 
-### Desktop
+### Windows Desktop
 
 Tauri v2를 실행할 수 있는 Windows 개발환경에서:
 
@@ -101,7 +142,7 @@ npm install
 npm run tauri dev
 ```
 
-### Test
+### Frontend test
 
 ```bash
 npm test -- --run
@@ -113,27 +154,50 @@ npm test -- --run
 npm run build
 ```
 
+### Rust / SQLite test
+
+```bash
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
 ### Rust / Tauri check
 
 ```bash
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
+## CI 검증
+
+GitHub Actions는 `main`, `feat/**`, `main` 대상 Pull Request에서 검증합니다.
+
+Frontend job:
+
+1. npm dependencies 설치
+2. 전체 Vitest 실행
+3. TypeScript + Vite production build
+
+Windows Desktop job:
+
+1. desktop tooling 설치
+2. Tauri icon 생성
+3. Rust/SQLite 전체 테스트
+4. Tauri Rust `cargo check`
+
 ## 주요 문서
 
 - [V1 설계명세](docs/superpowers/specs/2026-09-10-calendar-for-work-design.md)
 - [UI MVP 구현계획](docs/superpowers/plans/2026-09-10-calendar-ui-mvp.md)
+- [SQLite 영구저장 구현계획](docs/superpowers/plans/2026-09-10-sqlite-persistence.md)
 
 ## 다음 개발 우선순위
 
-1. SQLite 영구 저장 및 마이그레이션 구조
-2. 실제 사업 / 발주처 Master 관리
-3. 사업별 단계 Timeline
-4. Excel Import / Export
-5. 검색 / 필터 / 중요일정 화면
-6. Windows 알림 및 백업
-7. 설치파일 패키징
-8. 팀 공용 API / PostgreSQL 기반 협업형 구조 확장
+1. 사업 / 발주처 Master 관리
+2. 사업별 단계 Timeline
+3. Excel Import / Export
+4. 검색 / 필터 / 중요일정 화면
+5. Windows 알림 및 자동백업
+6. 설치파일 패키징
+7. 팀 공용 API / PostgreSQL 기반 협업형 구조 확장
 
 ## 제품 원칙
 

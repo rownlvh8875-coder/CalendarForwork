@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react';
 import { AppSidebar, type AppView } from '../components/AppSidebar';
-import { createSampleEvents } from '../data/sampleData';
 import { toDateKey } from '../domain/date';
 import { CalendarPage } from '../features/calendar/CalendarPage';
 import { QuickEventDialog } from '../features/events/QuickEventDialog';
 import { TodayPage } from '../features/today/TodayPage';
-import { createMemoryEventRepository } from '../repositories/memoryEventRepository';
+import { createRuntimeEventRepository } from '../repositories/runtimeEventRepository';
 
 const viewCopy: Record<AppView, { title: string; subtitle: string }> = {
   today: { title: '오늘', subtitle: '마감과 우선순위를 빠르게 확인합니다.' },
@@ -19,7 +18,7 @@ const viewCopy: Record<AppView, { title: string; subtitle: string }> = {
 
 export function App() {
   const appNow = useMemo(() => new Date(), []);
-  const repository = useMemo(() => createMemoryEventRepository(createSampleEvents(appNow)), [appNow]);
+  const repository = useMemo(() => createRuntimeEventRepository(appNow), [appNow]);
   const [activeView, setActiveView] = useState<AppView>('calendar');
   const [quickAddDateKey, setQuickAddDateKey] = useState<string | null>(null);
   const [calendarRevision, setCalendarRevision] = useState(0);
