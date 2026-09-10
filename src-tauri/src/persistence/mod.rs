@@ -1,5 +1,6 @@
 pub mod events;
 pub mod schema;
+pub mod types;
 
 use rusqlite::Connection;
 use std::{
