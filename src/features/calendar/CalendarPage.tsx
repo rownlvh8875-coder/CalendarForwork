@@ -10,6 +10,7 @@ export interface CalendarPageProps {
   repository: EventRepository;
   initialDate?: Date;
   now?: Date;
+  refreshKey?: number;
   onSelectEvent?: (event: CalendarEvent) => void;
   onSelectDay?: (dateKey: string) => void;
 }
@@ -22,6 +23,7 @@ export function CalendarPage({
   repository,
   initialDate = new Date(),
   now = new Date(),
+  refreshKey = 0,
   onSelectEvent,
   onSelectDay,
 }: CalendarPageProps) {
@@ -77,7 +79,7 @@ export function CalendarPage({
     return () => {
       cancelled = true;
     };
-  }, [days, repository]);
+  }, [days, repository, refreshKey]);
 
   const changeMonth = (offset: number) => {
     setSelectedEvent(null);
