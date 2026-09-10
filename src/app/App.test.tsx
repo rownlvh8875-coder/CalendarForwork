@@ -30,4 +30,15 @@ describe('CalendarForwork application shell', () => {
     await waitFor(() => expect(dialog).not.toBeInTheDocument());
     expect(await screen.findByText('통합흐름 확인 일정')).toBeInTheDocument();
   });
+
+  test('navigates from the calendar to the today work dashboard', async () => {
+    render(<App />);
+    await screen.findByRole('grid', { name: '월간 일정' });
+
+    const navigation = screen.getByLabelText('주요 메뉴');
+    fireEvent.click(within(navigation).getByRole('button', { name: '오늘' }));
+
+    expect(await screen.findByRole('heading', { name: '오늘의 업무' })).toBeInTheDocument();
+    expect(screen.queryByRole('grid', { name: '월간 일정' })).not.toBeInTheDocument();
+  });
 });
