@@ -1,3 +1,4 @@
+pub mod events;
 pub mod schema;
 
 use rusqlite::Connection;
