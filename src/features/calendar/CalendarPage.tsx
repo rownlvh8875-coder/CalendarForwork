@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CalendarEvent } from '../../domain/calendar';
 import { buildMonthGrid } from '../../domain/date';
+import { EventDetailPanel } from '../events/EventDetailPanel';
 import type { EventRepository } from '../../repositories/EventRepository';
 import { CalendarToolbar } from './CalendarToolbar';
 import { MonthGrid } from './MonthGrid';
@@ -26,6 +27,7 @@ export function CalendarPage({
 }: CalendarPageProps) {
   const [visibleMonth, setVisibleMonth] = useState(() => monthStart(initialDate));
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const days = useMemo(
@@ -78,7 +80,28 @@ export function CalendarPage({
   }, [days, repository]);
 
   const changeMonth = (offset: number) => {
+    setSelectedEvent(null);
     setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
+  };
+
+  const handleSelectEvent = (event: CalendarEvent) => {
+    setSelectedEvent(event);
+    onSelectEvent?.(event);
+  };
+
+  const handleComplete = async (id: string) => {
+    await repository.update(id, {
+      status: 'completed',
+      completedAt: now.toISOString(),
+    });
+    setSelectedEvent(null);
+    await loadVisibleEvents();
+  };
+
+  const handleDelete = async (id: string) => {
+    await repository.remove(id);
+    setSelectedEvent(null);
+    await loadVisibleEvents();
   };
 
   const monthEventCount = events.filter((event) => {
@@ -90,12 +113,15 @@ export function CalendarPage({
   const urgentCount = events.filter((event) => event.priority === 'critical' || event.priority === 'high').length;
 
   return (
-    <div className="calendar-page">
+    <div className={`calendar-page${selectedEvent ? ' has-detail-panel' : ''}`}>
       <div className="calendar-page-header">
         <CalendarToolbar
           monthDate={visibleMonth}
           onPrevious={() => changeMonth(-1)}
-          onToday={() => setVisibleMonth(monthStart(now))}
+          onToday={() => {
+            setSelectedEvent(null);
+            setVisibleMonth(monthStart(now));
+          }}
           onNext={() => changeMonth(1)}
         />
 
@@ -110,9 +136,18 @@ export function CalendarPage({
         days={days}
         events={events}
         now={now}
-        onSelectEvent={onSelectEvent}
+        onSelectEvent={handleSelectEvent}
         onSelectDay={onSelectDay}
       />
+
+      {selectedEvent ? (
+        <EventDetailPanel
+          event={selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+          onComplete={handleComplete}
+          onDelete={handleDelete}
+        />
+      ) : null}
 
       <span className="sr-only" aria-live="polite">
         {isLoading ? '일정을 불러오는 중입니다.' : `일정 ${events.length}건을 불러왔습니다.`}
