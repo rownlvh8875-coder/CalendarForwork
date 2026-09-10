@@ -2,9 +2,16 @@ use std::path::Path;
 
 use crate::{
     app_database_path,
-    commands::events::{
-        events_create, events_get, events_list_between, events_list_upcoming, events_remove,
-        events_replace,
+    commands::{
+        clients::{clients_create, clients_get, clients_list, clients_remove, clients_replace},
+        events::{
+            events_create, events_get, events_list_between, events_list_upcoming, events_remove,
+            events_replace,
+        },
+        projects::{
+            project_stages_list, projects_create, projects_get, projects_list,
+            projects_replace, projects_set_archived,
+        },
     },
 };
 
@@ -22,4 +29,20 @@ fn event_command_entrypoints_are_exposed() {
     let _ = events_create;
     let _ = events_replace;
     let _ = events_remove;
+}
+
+#[test]
+fn master_command_entrypoints_are_exposed() {
+    let _ = clients_list;
+    let _ = clients_get;
+    let _ = clients_create;
+    let _ = clients_replace;
+    let _ = clients_remove;
+
+    let _ = project_stages_list;
+    let _ = projects_list;
+    let _ = projects_get;
+    let _ = projects_create;
+    let _ = projects_replace;
+    let _ = projects_set_archived;
 }
