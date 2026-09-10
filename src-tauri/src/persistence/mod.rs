@@ -1,6 +1,7 @@
 pub mod events;
 pub mod schema;
 pub mod types;
+pub mod upcoming;
 
 #[cfg(test)]
 mod upcoming_tests;
