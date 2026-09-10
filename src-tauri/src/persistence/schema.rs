@@ -66,14 +66,9 @@ mod tests {
     use rusqlite::Connection;
 
     #[test]
-    fn migration_creates_events_table_and_version() {
+    fn migration_creates_events_table() {
         let connection = Connection::open_in_memory().unwrap();
         migrate(&connection).unwrap();
-
-        let version: i64 = connection
-            .query_row("SELECT MAX(version) FROM schema_migrations", [], |row| row.get(0))
-            .unwrap();
-        assert_eq!(version, 1);
 
         let table_count: i64 = connection
             .query_row(
@@ -83,5 +78,38 @@ mod tests {
             )
             .unwrap();
         assert_eq!(table_count, 1);
+    }
+
+    #[test]
+    fn migration_v2_creates_project_and_client_master_tables() {
+        let connection = Connection::open_in_memory().unwrap();
+        migrate(&connection).unwrap();
+
+        let version: i64 = connection
+            .query_row("SELECT MAX(version) FROM schema_migrations", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, 2);
+
+        for table in ["clients", "project_stages", "projects"] {
+            let count: i64 = connection
+                .query_row(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
+                    [table],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(count, 1, "missing table {table}");
+        }
+
+        let stage_count: i64 = connection
+            .query_row("SELECT COUNT(*) FROM project_stages", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(stage_count, 17);
+
+        migrate(&connection).unwrap();
+        let stage_count_after_second_run: i64 = connection
+            .query_row("SELECT COUNT(*) FROM project_stages", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(stage_count_after_second_run, 17);
     }
 }
