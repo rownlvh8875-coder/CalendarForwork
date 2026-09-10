@@ -1,6 +1,7 @@
 pub mod clients;
 pub mod events;
 pub mod master_types;
+pub mod projects;
 pub mod schema;
 pub mod types;
 pub mod upcoming;
