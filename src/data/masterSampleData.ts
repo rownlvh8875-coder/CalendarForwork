@@ -41,7 +41,7 @@ export function createMasterSampleData(anchor = new Date()): MasterSampleData {
     ['notice', '입찰공고'], ['pq', 'PQ'], ['soq', 'SOQ'], ['basic-design', '기본설계'],
     ['detailed-design', '실시설계'], ['design-review', '설계심의'], ['price-bid', '가격입찰'],
     ['opening', '개찰'], ['preferred-bidder', '우선협상'], ['won', '수주'], ['lost', '탈락'],
-    ['hold', '보류'], ['closed', '종료'],
+    ['hold', '보류'], ['closed', '종료'], ['cancelled', '취소'],
   ].map(([key, name], index) => ({ key, name, sortOrder: (index + 1) * 10, isActive: true }));
 
   const projects: Project[] = [
