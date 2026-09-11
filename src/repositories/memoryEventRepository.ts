@@ -39,6 +39,19 @@ export function createMemoryEventRepository(initialEvents: CalendarEvent[]): Eve
       return listBetween(fromKey, endKey);
     },
 
+    async listByProject(projectId: string): Promise<CalendarEvent[]> {
+      return events
+        .filter((event) => event.projectId === projectId)
+        .sort((left, right) => {
+          const startCompare = left.startAt.localeCompare(right.startAt);
+          if (startCompare !== 0) return startCompare;
+          const createdCompare = left.createdAt.localeCompare(right.createdAt);
+          if (createdCompare !== 0) return createdCompare;
+          return left.id.localeCompare(right.id);
+        })
+        .map(cloneEvent);
+    },
+
     async create(input: NewCalendarEvent): Promise<CalendarEvent> {
       const now = new Date().toISOString();
       const event: CalendarEvent = {
