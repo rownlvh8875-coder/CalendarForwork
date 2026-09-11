@@ -1,10 +1,12 @@
 import type { Client } from '../domain/clients';
 import type { Project, ProjectStage } from '../domain/projects';
+import type { ProjectStageHistory } from '../domain/timeline';
 
 export interface MemoryMasterState {
   clients: Client[];
   projects: Project[];
   stages: ProjectStage[];
+  stageHistory: ProjectStageHistory[];
 }
 
 export function cloneClient(client: Client): Client {
@@ -17,4 +19,8 @@ export function cloneProject(project: Project): Project {
 
 export function cloneStage(stage: ProjectStage): ProjectStage {
   return { ...stage };
+}
+
+export function cloneStageHistory(history: ProjectStageHistory): ProjectStageHistory {
+  return { ...history };
 }
