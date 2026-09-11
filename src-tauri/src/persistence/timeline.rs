@@ -27,7 +27,7 @@ impl Database {
             "SELECT id, project_id, from_stage, to_stage, changed_at, source, note, created_at
              FROM project_stage_history
              WHERE project_id = ?1
-             ORDER BY changed_at DESC, created_at DESC, id DESC",
+             ORDER BY changed_at DESC, created_at DESC, rowid DESC",
         )?;
         let rows = statement.query_map([project_id], map_history_row)?;
         Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
