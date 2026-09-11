@@ -51,6 +51,8 @@ export function App() {
       <ProjectsPage
         projectRepository={masterRepositories.projects}
         clientRepository={masterRepositories.clients}
+        timelineRepository={masterRepositories.timeline}
+        eventRepository={repository}
         now={appNow}
       />
     );
