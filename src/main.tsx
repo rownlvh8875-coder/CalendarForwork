@@ -7,6 +7,7 @@ import './styles/calendar.css';
 import './styles/events.css';
 import './styles/dialogs.css';
 import './styles/today.css';
+import './styles/masters.css';
 
 const rootElement = document.getElementById('root');
 
