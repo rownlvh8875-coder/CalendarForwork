@@ -54,6 +54,11 @@ export function ClientsPage({ clientRepository, projectRepository }: Props) {
     return counts;
   }, [projects]);
 
+  const linkedProjectCount = useMemo(
+    () => projects.filter((project) => Boolean(project.clientId)).length,
+    [projects],
+  );
+
   const filteredClients = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase('ko-KR');
     return clients.filter((client) => {
@@ -88,7 +93,7 @@ export function ClientsPage({ clientRepository, projectRepository }: Props) {
     <div className="master-page client-master-page">
       <section className="master-summary-strip client-summary-strip" aria-label="발주처 요약">
         <div className="master-summary-item"><span>등록 발주처</span><strong>{clients.length}</strong></div>
-        <div className="master-summary-item"><span>연결 사업</span><strong>{projects.length}</strong></div>
+        <div className="master-summary-item"><span>연결 사업</span><strong>{linkedProjectCount}</strong></div>
         <div className="master-summary-item"><span>발주처 구분</span><strong>{categories.length}</strong></div>
         <div className="master-summary-item master-summary-cost"><span>연락처 등록</span><strong>{clients.filter((client) => client.phone || client.email).length}</strong></div>
       </section>
