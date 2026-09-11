@@ -8,6 +8,7 @@ import './styles/events.css';
 import './styles/dialogs.css';
 import './styles/today.css';
 import './styles/masters.css';
+import './styles/clients.css';
 
 const rootElement = document.getElementById('root');
 
