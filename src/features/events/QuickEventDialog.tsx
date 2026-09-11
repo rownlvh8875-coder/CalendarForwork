@@ -37,6 +37,7 @@ export function QuickEventDialog({ repository, projectRepository, initialDateKey
   const [clientName, setClientName] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState('');
+  const [projectsLoaded, setProjectsLoaded] = useState(!projectRepository);
   const [projectLoadError, setProjectLoadError] = useState<string | null>(null);
   const [dateKey, setDateKey] = useState(initialDateKey);
   const [categoryKey, setCategoryKey] = useState('other');
@@ -59,20 +60,24 @@ export function QuickEventDialog({ repository, projectRepository, initialDateKey
     let cancelled = false;
     if (!projectRepository) {
       setProjects([]);
+      setProjectsLoaded(true);
       setProjectLoadError(null);
       return () => { cancelled = true; };
     }
 
+    setProjectsLoaded(false);
     void projectRepository.list(false)
       .then((items) => {
         if (!cancelled) {
           setProjects(items);
           setProjectLoadError(null);
+          setProjectsLoaded(true);
         }
       })
       .catch((cause) => {
         if (!cancelled) {
           setProjectLoadError(cause instanceof Error ? cause.message : '사업 목록을 불러오지 못했습니다.');
+          setProjectsLoaded(true);
         }
       });
 
@@ -207,8 +212,10 @@ export function QuickEventDialog({ repository, projectRepository, initialDateKey
           {projectRepository ? (
             <label className="form-field form-field-wide">
               <span>사업 연결</span>
-              <select aria-label="사업 연결" value={projectId} onChange={(event) => setProjectId(event.target.value)}>
-                <option value="">사업 연결 안 함</option>
+              <select aria-label="사업 연결" value={projectId} onChange={(event) => setProjectId(event.target.value)} disabled={!projectsLoaded || Boolean(projectLoadError)}>
+                {!projectsLoaded ? <option value="">사업 불러오는 중…</option> : null}
+                {projectsLoaded && projects.length === 0 ? <option value="" disabled>등록된 사업 없음</option> : null}
+                {projectsLoaded && projects.length > 0 ? <option value="">사업 연결 안 함</option> : null}
                 {projects.map((project) => (
                   <option key={project.id} value={project.id}>
                     {project.name}{project.clientName ? ` · ${project.clientName}` : ''}
@@ -217,7 +224,7 @@ export function QuickEventDialog({ repository, projectRepository, initialDateKey
               </select>
               {selectedProject ? (
                 <small className="linked-project-preview">
-                  {selectedProject.currentStage} · {selectedProject.clientName ?? '발주처 미지정'}
+                  연결됨 · {selectedProject.clientName ?? '발주처 미지정'}
                 </small>
               ) : null}
             </label>
