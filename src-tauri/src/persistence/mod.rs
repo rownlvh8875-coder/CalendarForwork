@@ -3,6 +3,8 @@ pub mod events;
 pub mod master_types;
 pub mod projects;
 pub mod schema;
+pub mod timeline;
+pub mod timeline_types;
 pub mod types;
 pub mod upcoming;
 
