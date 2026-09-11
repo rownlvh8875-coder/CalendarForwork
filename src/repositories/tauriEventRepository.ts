@@ -19,6 +19,10 @@ export function createTauriEventRepository(invokeFn: InvokeFn = tauriInvoke): Ev
       return invokeFn<CalendarEvent[]>('events_list_upcoming', { fromIso, days });
     },
 
+    listByProject(projectId: string): Promise<CalendarEvent[]> {
+      return invokeFn<CalendarEvent[]>('events_list_by_project', { projectId });
+    },
+
     create(event: NewCalendarEvent): Promise<CalendarEvent> {
       return invokeFn<CalendarEvent>('events_create', { event });
     },
