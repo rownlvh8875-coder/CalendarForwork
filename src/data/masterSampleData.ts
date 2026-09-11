@@ -1,10 +1,12 @@
 import type { Client } from '../domain/clients';
 import type { Project, ProjectStage } from '../domain/projects';
+import type { ProjectStageHistory } from '../domain/timeline';
 
 export interface MasterSampleData {
   clients: Client[];
   projects: Project[];
   stages: ProjectStage[];
+  stageHistory: ProjectStageHistory[];
 }
 
 export function createMasterSampleData(anchor = new Date()): MasterSampleData {
@@ -61,5 +63,16 @@ export function createMasterSampleData(anchor = new Date()): MasterSampleData {
     },
   ];
 
-  return { clients, projects, stages };
+  const stageHistory: ProjectStageHistory[] = projects.map((project) => ({
+    id: `demo-history:${project.id}`,
+    projectId: project.id,
+    fromStage: null,
+    toStage: project.currentStage,
+    changedAt: stamp,
+    source: 'project-create',
+    note: null,
+    createdAt: stamp,
+  }));
+
+  return { clients, projects, stages, stageHistory };
 }
