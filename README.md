@@ -6,9 +6,9 @@
 
 ## 현재 개발 단계
 
-**UI MVP + SQLite 일정/사업/발주처 Master 단계**
+**UI MVP + SQLite 일정/사업/발주처 Master + 사업 Timeline 단계**
 
-현재 월간 일정관리, SQLite 영구저장, 사업 Master, 발주처 Master, 일정-사업 연결까지 하나의 동작 가능한 흐름으로 구현되어 있습니다.
+현재 월간 일정관리, SQLite 영구저장, 사업·발주처 Master, 일정-사업 연결, 사업별 단계 이력과 연계 일정 Timeline까지 하나의 동작 흐름으로 구현되어 있습니다.
 
 ## 구현 완료
 
@@ -40,19 +40,59 @@
   - `projectId` 저장
   - 사업명 및 발주처명 snapshot 저장
   - 사업을 선택하지 않은 일정도 등록 가능
-- SQLite schema migration version 2
+- 사업별 Timeline
+  - 사업 상세의 `개요 | Timeline` 전환
+  - 신규 사업 최초 단계 자동 기록
+  - 실제 단계 변경 시 이전단계 → 새단계 자동 기록
+  - 동일 단계 재저장 시 중복 이력 미생성
+  - 해당 사업에 연결된 PQ / SOQ / 설계심의 / 가격입찰 / 회의 등 일정 통합 표시
+  - 향후 일정 D-DAY / D-N 표시
+  - 사업 보관 후에도 단계이력 유지
+- SQLite schema migration version 3
   - `events`
   - `clients`
   - `project_stages`
   - `projects`
+  - `project_stage_history`
 - 사업 진행단계 17종
   - 관심사업 / 계획 / 발주예정 / 입찰공고 / PQ / SOQ
   - 기본설계 / 실시설계 / 설계심의 / 가격입찰 / 개찰 / 우선협상
   - 수주 / 탈락 / 보류 / 종료 / 취소
-- `EventRepository`, `ClientRepository`, `ProjectRepository` 추상화
+- `EventRepository`, `ClientRepository`, `ProjectRepository`, `ProjectTimelineRepository` 추상화
 - Tauri IPC + Rust + rusqlite 영구저장 adapter
 - 브라우저/Vitest용 공유 Memory Repository
 - GitHub Actions 프론트엔드 + Windows Tauri/Rust 자동검증
+
+## 사업 Timeline 데이터 규칙
+
+`projects.current_stage`는 현재 상태의 빠른 조회를 위해 계속 유지하고, 단계 변경 이력은 `project_stage_history`에 별도로 저장합니다.
+
+신규 사업 등록 시:
+
+```text
+fromStage = null
+toStage = 최초 currentStage
+source = project-create
+```
+
+사업 단계가 실제로 변경될 때:
+
+```text
+fromStage = 이전 단계
+toStage = 새 단계
+source = project-edit
+```
+
+기존 데이터가 schema v2에서 v3로 올라갈 때는 과거 단계 변경을 추정하지 않습니다. 기존 사업에는 migration 시점의 현재 단계만 다음 기준선 1건으로 기록합니다.
+
+```text
+id = baseline:<project_id>
+fromStage = null
+toStage = 현재 currentStage
+source = migration-baseline
+```
+
+UI에서는 이 레코드를 `현재단계 기준선`으로 표시합니다. `projects.current_stage` 갱신과 단계이력 추가는 같은 SQLite transaction에서 처리되므로 둘 중 하나가 실패하면 전체 변경이 rollback됩니다.
 
 ## 데이터 저장 방식
 
@@ -76,7 +116,7 @@ SQLite는 `rusqlite`의 `bundled` 기능을 사용하므로 별도의 SQLite DLL
 
 `npm run dev`로 브라우저에서 확인하거나 Vitest를 실행할 때는 Memory Repository와 명시적으로 **가상**이라고 표시한 데모 데이터를 사용합니다.
 
-이 데이터는 브라우저 새 실행 시 유지되지 않으며 실제 SQLite 영구저장 데이터가 아닙니다.
+Memory 모드도 사업 생성/단계변경 이력을 실제 SQLite와 같은 규칙으로 기록하지만, 브라우저 새 실행 시 유지되지 않습니다.
 
 ## 저장 계층 구조
 
@@ -88,7 +128,8 @@ Domain / Application Logic
 Repository Interfaces
    ├─ EventRepository
    ├─ ClientRepository
-   └─ ProjectRepository
+   ├─ ProjectRepository
+   └─ ProjectTimelineRepository
           │
           ├─ Browser / Vitest → shared Memory Repositories
           │
@@ -111,13 +152,22 @@ UI와 업무 규칙이 SQLite 구현에 직접 종속되지 않도록 구성하�
 - Project와 Event는 별도 Entity입니다.
 - Project는 `client_id`로 Client를 참조합니다.
 - Client 삭제 시 연결된 Project의 `client_id`는 `NULL`이 됩니다.
-- Client 삭제가 Project나 Event를 삭제하지는 않습니다.
+- Client 삭제가 Project, Event, Project Stage History를 삭제하지는 않습니다.
 - Project는 기본적으로 삭제 대신 `archived` 상태로 보관합니다.
+- Project 보관은 Stage History를 삭제하지 않습니다.
 - Event에 연결된 사업명·발주처명은 일정 생성 시 snapshot으로 함께 저장합니다.
+- Timeline의 사업연결 일정은 `events.project_id`로 조회합니다.
+
+## Timeline V1에서 의도적으로 제외한 기능
+
+- 단계 이력 수동 수정/삭제
+- 과거 단계 변경일 추정 및 소급 생성
+- Gantt Chart
+- 17단계 전체 Progress Bar
+- Timeline Drag & Drop
 
 ## 아직 구현하지 않은 주요 기능
 
-- 사업별 단계 Timeline
 - 주간 캘린더 / 목록형 일정 화면
 - 일정 Full Form 편집 UX 고도화
 - Drag & Drop 일정 이동 및 Undo
@@ -197,15 +247,16 @@ Windows Desktop job:
 - [UI MVP 구현계획](docs/superpowers/plans/2026-09-10-calendar-ui-mvp.md)
 - [SQLite 영구저장 구현계획](docs/superpowers/plans/2026-09-10-sqlite-persistence.md)
 - [사업·발주처 Master 구현계획](docs/superpowers/plans/2026-09-11-project-client-master.md)
+- [사업 Timeline 설계명세](docs/superpowers/specs/2026-09-11-project-timeline-design.md)
+- [사업 Timeline 구현계획](docs/superpowers/plans/2026-09-11-project-timeline.md)
 
 ## 다음 개발 우선순위
 
-1. 사업별 단계 Timeline
-2. Excel Import / Export
-3. 통합검색 / 상세 필터 / 중요일정 화면
-4. Windows 알림 및 자동백업
-5. 설치파일 패키징
-6. 팀 공용 API / PostgreSQL 기반 협업형 구조 확장
+1. Excel Import / Export
+2. 통합검색 / 상세 필터 / 중요일정 화면
+3. Windows 알림 및 자동백업
+4. 설치파일 패키징
+5. 팀 공용 API / PostgreSQL 기반 협업형 구조 확장
 
 ## 제품 원칙
 
