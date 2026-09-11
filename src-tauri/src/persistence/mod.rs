@@ -7,6 +7,8 @@ pub mod types;
 pub mod upcoming;
 
 #[cfg(test)]
+mod timeline_tests;
+#[cfg(test)]
 mod upcoming_tests;
 
 use rusqlite::Connection;
