@@ -1,10 +1,21 @@
 import type { NewProject, Project, ProjectStage } from '../domain/projects';
+import type { ProjectStageHistory } from '../domain/timeline';
 import type { ProjectRepository } from './ProjectRepository';
 import { cloneProject, cloneStage, type MemoryMasterState } from './memoryMasterState';
 
 function enrich(project: Project, state: MemoryMasterState): Project {
   const client = project.clientId ? state.clients.find((item) => item.id === project.clientId) : null;
   return { ...project, clientName: client?.name ?? null };
+}
+
+function appendStageHistory(
+  state: MemoryMasterState,
+  history: Omit<ProjectStageHistory, 'id'>,
+): void {
+  state.stageHistory = [
+    ...state.stageHistory,
+    { ...history, id: crypto.randomUUID() },
+  ];
 }
 
 export function createMemoryProjectRepository(state: MemoryMasterState): ProjectRepository {
@@ -34,6 +45,15 @@ export function createMemoryProjectRepository(state: MemoryMasterState): Project
         updatedAt: now,
       };
       state.projects = [...state.projects, project];
+      appendStageHistory(state, {
+        projectId: project.id,
+        fromStage: null,
+        toStage: project.currentStage,
+        changedAt: now,
+        source: 'project-create',
+        note: null,
+        createdAt: now,
+      });
       return cloneProject(enrich(project, state));
     },
 
@@ -42,15 +62,29 @@ export function createMemoryProjectRepository(state: MemoryMasterState): Project
       if (index < 0) throw new Error(`Project not found: ${id}`);
 
       const current = state.projects[index];
+      const now = new Date().toISOString();
       const updated: Project = {
         ...current,
         ...patch,
         id: current.id,
         clientName: current.clientName,
         createdAt: current.createdAt,
-        updatedAt: new Date().toISOString(),
+        updatedAt: now,
       };
       state.projects = state.projects.map((item) => (item.id === id ? updated : item));
+
+      if (updated.currentStage !== current.currentStage) {
+        appendStageHistory(state, {
+          projectId: id,
+          fromStage: current.currentStage,
+          toStage: updated.currentStage,
+          changedAt: now,
+          source: 'project-edit',
+          note: null,
+          createdAt: now,
+        });
+      }
+
       return cloneProject(enrich(updated, state));
     },
 
