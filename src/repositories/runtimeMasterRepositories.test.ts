@@ -1,41 +1,47 @@
 import { describe, expect, it } from 'vitest';
 import { createRuntimeMasterRepositories } from './runtimeMasterRepositories';
 
+const anchor = new Date('2026-09-11T09:00:00+09:00');
+
 describe('createRuntimeMasterRepositories', () => {
   it('uses fictional shared browser data and preserves project/client relations', async () => {
-    const { clientRepository, projectRepository } = createRuntimeMasterRepositories(false);
+    const { clients, projects } = createRuntimeMasterRepositories(anchor, false);
 
-    const clients = await clientRepository.list();
-    const projects = await projectRepository.list(false);
+    const clientRows = await clients.list();
+    const projectRows = await projects.list(false);
 
-    expect(clients.length).toBeGreaterThan(0);
-    expect(projects.length).toBeGreaterThan(0);
-    expect(clients[0].name).toContain('가상');
-    expect(projects[0].name).toContain('가상');
-    expect(projects[0].clientId).toBe(clients[0].id);
-    expect(projects[0].clientName).toBe(clients[0].name);
+    expect(clientRows.length).toBeGreaterThan(0);
+    expect(projectRows.length).toBeGreaterThan(0);
+    expect(clientRows[0].name).toContain('가상');
+    expect(projectRows[0].name).toContain('가상');
+    expect(projectRows[0].clientId).toBe(clientRows[0].id);
+    expect(projectRows[0].clientName).toBe(clientRows[0].name);
   });
 
   it('nulls a linked project client when the browser client is removed', async () => {
-    const { clientRepository, projectRepository } = createRuntimeMasterRepositories(false);
-    const client = (await clientRepository.list())[0];
-    const linked = (await projectRepository.list(false)).find((project) => project.clientId === client.id);
+    const { clients, projects } = createRuntimeMasterRepositories(anchor, false);
+    const client = (await clients.list())[0];
+    const linked = (await projects.list(false)).find((project) => project.clientId === client.id);
 
     expect(linked).toBeDefined();
-    await clientRepository.remove(client.id);
+    await clients.remove(client.id);
 
-    const after = await projectRepository.get(linked!.id);
+    const after = await projects.get(linked!.id);
     expect(after?.clientId).toBeNull();
     expect(after?.clientName).toBeNull();
   });
 
   it('supports project archive filtering in browser mode', async () => {
-    const { projectRepository } = createRuntimeMasterRepositories(false);
-    const project = (await projectRepository.list(false))[0];
+    const { projects } = createRuntimeMasterRepositories(anchor, false);
+    const project = (await projects.list(false))[0];
 
-    await projectRepository.setArchived(project.id, true);
+    await projects.setArchived(project.id, true);
 
-    expect((await projectRepository.list(false)).some((item) => item.id === project.id)).toBe(false);
-    expect((await projectRepository.list(true)).some((item) => item.id === project.id)).toBe(true);
+    expect((await projects.list(false)).some((item) => item.id === project.id)).toBe(false);
+    expect((await projects.list(true)).some((item) => item.id === project.id)).toBe(true);
+  });
+
+  it('constructs Tauri adapters without invoking commands', () => {
+    expect(() => createRuntimeMasterRepositories(anchor, true)).not.toThrow();
   });
 });
