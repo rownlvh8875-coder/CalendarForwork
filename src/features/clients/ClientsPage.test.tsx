@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { createRuntimeMasterRepositories } from '../../repositories/runtimeMasterRepositories';
 import { ClientsPage } from './ClientsPage';
@@ -28,6 +28,37 @@ describe('ClientsPage', () => {
 
     fireEvent.change(screen.getByLabelText('발주처 구분 필터'), { target: { value: '공공기관' } });
     expect(screen.getByText('가상 공공 발주처 B')).toBeInTheDocument();
+  });
+
+  it('counts only projects that are actually linked to a client', async () => {
+    const repositories = createRuntimeMasterRepositories(anchor, false);
+    await repositories.projects.create({
+      projectCode: 'NO-CLIENT',
+      name: '가상 발주처 미지정 사업',
+      clientId: null,
+      projectType: '도로',
+      region: '서울',
+      contractType: null,
+      estimatedCost: null,
+      currentStage: 'interest',
+      priority: 'normal',
+      assignee: null,
+      expectedBidDate: null,
+      description: null,
+      memo: null,
+      url: null,
+      archived: false,
+    });
+
+    render(
+      <ClientsPage
+        clientRepository={repositories.clients}
+        projectRepository={repositories.projects}
+      />,
+    );
+
+    const summary = await screen.findByLabelText('발주처 요약');
+    expect(within(summary).getByText('연결 사업').parentElement).toHaveTextContent('연결 사업2');
   });
 
   it('creates a new client and refreshes the list', async () => {
