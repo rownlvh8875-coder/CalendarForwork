@@ -160,14 +160,14 @@ mod tests {
     }
 
     #[test]
-    fn migration_v2_creates_project_and_client_master_tables() {
+    fn migration_creates_project_and_client_master_tables() {
         let connection = Connection::open_in_memory().unwrap();
         migrate(&connection).unwrap();
 
         let version: i64 = connection
             .query_row("SELECT MAX(version) FROM schema_migrations", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 2);
+        assert_eq!(version, 3);
 
         for table in ["clients", "project_stages", "projects"] {
             let count: i64 = connection
@@ -190,5 +190,80 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM project_stages", [], |row| row.get(0))
             .unwrap();
         assert_eq!(stage_count_after_second_run, 17);
+    }
+
+    #[test]
+    fn migration_v3_backfills_one_current_stage_baseline_per_existing_project() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE schema_migrations (
+                    version INTEGER PRIMARY KEY,
+                    applied_at TEXT NOT NULL
+                );",
+            )
+            .unwrap();
+        connection.execute_batch(MIGRATION_1).unwrap();
+        connection.execute_batch(MIGRATION_2).unwrap();
+        connection
+            .execute_batch(
+                "INSERT INTO schema_migrations(version, applied_at) VALUES
+                    (1, '2026-09-11T00:00:00.000Z'),
+                    (2, '2026-09-11T00:00:01.000Z');
+                 INSERT INTO projects(
+                    id, name, current_stage, priority, archived, created_at, updated_at
+                 ) VALUES (
+                    'legacy-project', '기존 사업', 'pq', 'normal', 0,
+                    '2026-09-10T00:00:00.000Z', '2026-09-10T00:00:00.000Z'
+                 );",
+            )
+            .unwrap();
+
+        migrate(&connection).unwrap();
+
+        let version: i64 = connection
+            .query_row("SELECT MAX(version) FROM schema_migrations", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, 3);
+
+        let table_count: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='project_stage_history'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(table_count, 1);
+
+        let baseline = connection
+            .query_row(
+                "SELECT id, from_stage, to_stage, source
+                 FROM project_stage_history
+                 WHERE project_id = 'legacy-project'",
+                [],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, Option<String>>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, String>(3)?,
+                    ))
+                },
+            )
+            .unwrap();
+        assert_eq!(baseline.0, "baseline:legacy-project");
+        assert_eq!(baseline.1, None);
+        assert_eq!(baseline.2, "pq");
+        assert_eq!(baseline.3, "migration-baseline");
+
+        migrate(&connection).unwrap();
+        let baseline_count: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM project_stage_history WHERE project_id = 'legacy-project'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(baseline_count, 1);
     }
 }
