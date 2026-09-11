@@ -113,8 +113,9 @@ export function ProjectsPage({ projectRepository, clientRepository, now = new Da
   }
 
   function handleSaved(project: Project) {
+    const wasNew = editing === 'new';
     setEditing(null);
-    setSelected(project);
+    if (!wasNew) setSelected(project);
     void load();
   }
 
