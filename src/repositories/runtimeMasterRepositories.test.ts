@@ -9,6 +9,7 @@ describe('createRuntimeMasterRepositories', () => {
 
     const clientRows = await clients.list();
     const projectRows = await projects.list(false);
+    const stages = await projects.listStages();
 
     expect(clientRows.length).toBeGreaterThan(0);
     expect(projectRows.length).toBeGreaterThan(0);
@@ -16,6 +17,8 @@ describe('createRuntimeMasterRepositories', () => {
     expect(projectRows[0].name).toContain('가상');
     expect(projectRows[0].clientId).toBe(clientRows[0].id);
     expect(projectRows[0].clientName).toBe(clientRows[0].name);
+    expect(stages).toHaveLength(17);
+    expect(stages.at(-1)).toMatchObject({ key: 'cancelled', name: '취소' });
   });
 
   it('nulls a linked project client when the browser client is removed', async () => {
