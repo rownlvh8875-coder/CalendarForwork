@@ -41,4 +41,18 @@ describe('CalendarForwork application shell', () => {
     expect(await screen.findByRole('heading', { name: '오늘의 업무' })).toBeInTheDocument();
     expect(screen.queryByRole('grid', { name: '월간 일정' })).not.toBeInTheDocument();
   });
+
+  test('navigates to the project and client master workspaces', async () => {
+    render(<App />);
+    await screen.findByRole('grid', { name: '월간 일정' });
+    const navigation = screen.getByLabelText('주요 메뉴');
+
+    fireEvent.click(within(navigation).getByRole('button', { name: '사업관리' }));
+    expect(await screen.findByRole('heading', { name: '사업 Master' })).toBeInTheDocument();
+    expect(screen.getByText('가상 A철도 차량기지 건설공사')).toBeInTheDocument();
+
+    fireEvent.click(within(navigation).getByRole('button', { name: '발주처' }));
+    expect(await screen.findByRole('heading', { name: '발주처 Master' })).toBeInTheDocument();
+    expect(screen.getByText('가상 공공 발주처 A')).toBeInTheDocument();
+  });
 });
