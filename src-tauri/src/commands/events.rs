@@ -26,6 +26,16 @@ pub fn events_list_upcoming(
 }
 
 #[tauri::command]
+pub fn events_list_by_project(
+    database: tauri::State<'_, Database>,
+    project_id: String,
+) -> Result<Vec<EventRecord>, String> {
+    database
+        .list_events_by_project(&project_id)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub fn events_get(
     database: tauri::State<'_, Database>,
     id: String,
