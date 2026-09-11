@@ -23,6 +23,17 @@ function dateKeyToUtcMs(dateKey: string): number {
   return Date.UTC(year, month - 1, day);
 }
 
+function compareTimelineInstant(left: string, right: string): number {
+  const leftMs = Date.parse(left);
+  const rightMs = Date.parse(right);
+
+  if (Number.isFinite(leftMs) && Number.isFinite(rightMs) && leftMs !== rightMs) {
+    return rightMs - leftMs;
+  }
+
+  return right.localeCompare(left);
+}
+
 export function buildProjectTimeline(
   history: ProjectStageHistory[],
   events: CalendarEvent[],
@@ -43,7 +54,7 @@ export function buildProjectTimeline(
   ];
 
   return items.sort((left, right) => {
-    const atCompare = right.at.localeCompare(left.at);
+    const atCompare = compareTimelineInstant(left.at, right.at);
     if (atCompare !== 0) return atCompare;
 
     const kindCompare = left.kind.localeCompare(right.kind);
