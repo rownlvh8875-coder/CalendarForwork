@@ -26,6 +26,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::events::events_list_between,
             commands::events::events_list_upcoming,
+            commands::events::events_list_by_project,
             commands::events::events_get,
             commands::events::events_create,
             commands::events::events_replace,
@@ -41,6 +42,7 @@ pub fn run() {
             commands::projects::projects_create,
             commands::projects::projects_replace,
             commands::projects::projects_set_archived,
+            commands::timeline::project_stage_history_list,
         ])
         .run(tauri::generate_context!())
         .expect("error while running CalendarForwork");
