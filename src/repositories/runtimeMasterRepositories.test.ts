@@ -5,7 +5,7 @@ const anchor = new Date('2026-09-11T09:00:00+09:00');
 
 describe('createRuntimeMasterRepositories', () => {
   it('uses fictional shared browser data and preserves project/client relations', async () => {
-    const { clients, projects } = createRuntimeMasterRepositories(anchor, false);
+    const { clients, projects, timeline } = createRuntimeMasterRepositories(anchor, false);
 
     const clientRows = await clients.list();
     const projectRows = await projects.list(false);
@@ -19,6 +19,53 @@ describe('createRuntimeMasterRepositories', () => {
     expect(projectRows[0].clientName).toBe(clientRows[0].name);
     expect(stages).toHaveLength(17);
     expect(stages.at(-1)).toMatchObject({ key: 'cancelled', name: '취소' });
+
+    const history = await timeline.listStageHistory(projectRows[0].id);
+    expect(history).toHaveLength(1);
+    expect(history[0]).toMatchObject({
+      projectId: projectRows[0].id,
+      fromStage: null,
+      toStage: projectRows[0].currentStage,
+      source: 'project-create',
+    });
+  });
+
+  it('records only real stage changes and keeps history after archive in browser mode', async () => {
+    const { projects, timeline } = createRuntimeMasterRepositories(anchor, false);
+    const created = await projects.create({
+      projectCode: 'DEMO-TIMELINE',
+      name: '가상 Timeline 검증사업',
+      clientId: null,
+      projectType: '철도',
+      region: '서울',
+      contractType: '기술형입찰',
+      estimatedCost: 100_000_000_000,
+      currentStage: 'interest',
+      priority: 'normal',
+      assignee: null,
+      expectedBidDate: null,
+      description: null,
+      memo: null,
+      url: null,
+      archived: false,
+    });
+
+    expect(await timeline.listStageHistory(created.id)).toHaveLength(1);
+
+    await projects.update(created.id, { memo: '단계 변경 없음' });
+    expect(await timeline.listStageHistory(created.id)).toHaveLength(1);
+
+    await projects.update(created.id, { currentStage: 'pq' });
+    const changed = await timeline.listStageHistory(created.id);
+    expect(changed).toHaveLength(2);
+    expect(changed[0]).toMatchObject({
+      fromStage: 'interest',
+      toStage: 'pq',
+      source: 'project-edit',
+    });
+
+    await projects.setArchived(created.id, true);
+    expect(await timeline.listStageHistory(created.id)).toHaveLength(2);
   });
 
   it('nulls a linked project client when the browser client is removed', async () => {
