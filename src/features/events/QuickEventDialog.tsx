@@ -1,10 +1,13 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { defaultCategories } from '../../data/categories';
 import type { CalendarEvent, EventPriority } from '../../domain/calendar';
+import type { Project } from '../../domain/projects';
 import type { EventRepository } from '../../repositories/EventRepository';
+import type { ProjectRepository } from '../../repositories/ProjectRepository';
 
 interface QuickEventDialogProps {
   repository: EventRepository;
+  projectRepository?: ProjectRepository;
   initialDateKey: string;
   onClose: () => void;
   onCreated?: (event: CalendarEvent) => void;
@@ -28,10 +31,13 @@ function toLocalIso(dateKey: string, time: string): string {
   return `${dateKey}T${normalizedTime}:00${sign}${hours}:${minutes}`;
 }
 
-export function QuickEventDialog({ repository, initialDateKey, onClose, onCreated }: QuickEventDialogProps) {
+export function QuickEventDialog({ repository, projectRepository, initialDateKey, onClose, onCreated }: QuickEventDialogProps) {
   const [title, setTitle] = useState('');
   const [projectName, setProjectName] = useState('');
   const [clientName, setClientName] = useState('');
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectId, setProjectId] = useState('');
+  const [projectLoadError, setProjectLoadError] = useState<string | null>(null);
   const [dateKey, setDateKey] = useState(initialDateKey);
   const [categoryKey, setCategoryKey] = useState('other');
   const [priority, setPriority] = useState<EventPriority>('normal');
@@ -44,6 +50,34 @@ export function QuickEventDialog({ repository, initialDateKey, onClose, onCreate
     () => defaultCategories.find((item) => item.key === categoryKey) ?? defaultCategories.at(-1)!,
     [categoryKey],
   );
+  const selectedProject = useMemo(
+    () => projects.find((project) => project.id === projectId) ?? null,
+    [projects, projectId],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!projectRepository) {
+      setProjects([]);
+      setProjectLoadError(null);
+      return () => { cancelled = true; };
+    }
+
+    void projectRepository.list(false)
+      .then((items) => {
+        if (!cancelled) {
+          setProjects(items);
+          setProjectLoadError(null);
+        }
+      })
+      .catch((cause) => {
+        if (!cancelled) {
+          setProjectLoadError(cause instanceof Error ? cause.message : '사업 목록을 불러오지 못했습니다.');
+        }
+      });
+
+    return () => { cancelled = true; };
+  }, [projectRepository]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -75,9 +109,9 @@ export function QuickEventDialog({ repository, initialDateKey, onClose, onCreate
 
     try {
       const created = await repository.create({
-        projectId: null,
-        projectName: projectName.trim() || null,
-        clientName: clientName.trim() || null,
+        projectId: selectedProject?.id ?? null,
+        projectName: selectedProject?.name ?? projectName.trim() || null,
+        clientName: selectedProject?.clientName ?? clientName.trim() || null,
         categoryId: category.id,
         categoryKey: category.key,
         categoryName: category.name,
@@ -99,6 +133,8 @@ export function QuickEventDialog({ repository, initialDateKey, onClose, onCreate
 
       onCreated?.(created);
       onClose();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '일정 저장 중 오류가 발생했습니다.');
     } finally {
       setIsSaving(false);
     }
@@ -168,16 +204,38 @@ export function QuickEventDialog({ repository, initialDateKey, onClose, onCreate
             <input aria-label="마감시간" type="time" value={deadlineTime} onChange={(event) => setDeadlineTime(event.target.value)} />
           </label>
 
-          <label className="form-field form-field-wide">
-            <span>사업명</span>
-            <input aria-label="사업명" value={projectName} onChange={(event) => setProjectName(event.target.value)} placeholder="사업과 연결하면 일정 추적이 쉬워집니다." />
-          </label>
+          {projectRepository ? (
+            <label className="form-field form-field-wide">
+              <span>사업 연결</span>
+              <select aria-label="사업 연결" value={projectId} onChange={(event) => setProjectId(event.target.value)}>
+                <option value="">사업 연결 안 함</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}{project.clientName ? ` · ${project.clientName}` : ''}
+                  </option>
+                ))}
+              </select>
+              {selectedProject ? (
+                <small className="linked-project-preview">
+                  {selectedProject.currentStage} · {selectedProject.clientName ?? '발주처 미지정'}
+                </small>
+              ) : null}
+            </label>
+          ) : (
+            <>
+              <label className="form-field form-field-wide">
+                <span>사업명</span>
+                <input aria-label="사업명" value={projectName} onChange={(event) => setProjectName(event.target.value)} placeholder="사업과 연결하면 일정 추적이 쉬워집니다." />
+              </label>
 
-          <label className="form-field form-field-wide">
-            <span>발주처</span>
-            <input aria-label="발주처" value={clientName} onChange={(event) => setClientName(event.target.value)} placeholder="예: 국가철도공단" />
-          </label>
+              <label className="form-field form-field-wide">
+                <span>발주처</span>
+                <input aria-label="발주처" value={clientName} onChange={(event) => setClientName(event.target.value)} placeholder="예: 국가철도공단" />
+              </label>
+            </>
+          )}
 
+          {projectLoadError ? <p className="form-error" role="alert">{projectLoadError}</p> : null}
           {error ? <p className="form-error" role="alert">{error}</p> : null}
 
           <footer className="quick-dialog-footer">
