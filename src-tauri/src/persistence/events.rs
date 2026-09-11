@@ -79,6 +79,17 @@ impl Database {
         Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
     }
 
+    pub fn list_events_by_project(&self, project_id: &str) -> PersistenceResult<Vec<EventRecord>> {
+        let connection = self.lock()?;
+        let mut statement = connection.prepare(&format!(
+            "{EVENT_SELECT}
+             WHERE project_id = ?1
+             ORDER BY start_at ASC, created_at ASC, id ASC"
+        ))?;
+        let rows = statement.query_map([project_id], map_event_row)?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
     pub fn create_event(&self, input: NewEventRecord) -> PersistenceResult<EventRecord> {
         let id = Uuid::new_v4().to_string();
         let connection = self.lock()?;
