@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { createRuntimeEventRepository } from '../../repositories/runtimeEventRepository';
 import { createRuntimeMasterRepositories } from '../../repositories/runtimeMasterRepositories';
 import { ProjectsPage } from './ProjectsPage';
 
@@ -7,14 +8,17 @@ const anchor = new Date('2026-09-11T09:00:00+09:00');
 
 function renderPage() {
   const repositories = createRuntimeMasterRepositories(anchor, false);
+  const events = createRuntimeEventRepository(anchor, false);
   render(
     <ProjectsPage
       projectRepository={repositories.projects}
       clientRepository={repositories.clients}
+      timelineRepository={repositories.timeline}
+      eventRepository={events}
       now={anchor}
     />,
   );
-  return repositories;
+  return { ...repositories, events };
 }
 
 describe('ProjectsPage', () => {
@@ -38,11 +42,20 @@ describe('ProjectsPage', () => {
     expect(screen.getByText('필터 조건에 맞는 사업이 없습니다.')).toBeInTheDocument();
   });
 
-  it('opens a right detail panel from a row', async () => {
+  it('opens overview by default and loads timeline only after selecting the Timeline tab', async () => {
     renderPage();
     fireEvent.click(await screen.findByText('가상 A철도 차량기지 건설공사'));
+
     expect(screen.getByRole('complementary', { name: '사업 상세' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '개요' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('DEMO-A')).toBeInTheDocument();
+    expect(screen.queryByText('PQ 제출서류 검토')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Timeline' }));
+
+    expect(await screen.findByText('사업 시작')).toBeInTheDocument();
+    expect(screen.getByText('PQ 제출서류 검토')).toBeInTheDocument();
+    expect(screen.getByText('D-DAY')).toBeInTheDocument();
   });
 
   it('creates a project from the editor and refreshes the table', async () => {
