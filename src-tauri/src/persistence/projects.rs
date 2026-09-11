@@ -53,6 +53,14 @@ fn get_project_from_connection(
         .optional()
 }
 
+fn current_timestamp(connection: &Connection) -> rusqlite::Result<String> {
+    connection.query_row(
+        "SELECT strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
+        [],
+        |row| row.get(0),
+    )
+}
+
 impl Database {
     pub fn list_project_stages(&self) -> PersistenceResult<Vec<ProjectStageRecord>> {
         let connection = self.lock()?;
@@ -106,17 +114,19 @@ impl Database {
 
     pub fn create_project(&self, input: NewProjectRecord) -> PersistenceResult<ProjectRecord> {
         let id = Uuid::new_v4().to_string();
-        let connection = self.lock()?;
-        connection.execute(
+        let history_id = Uuid::new_v4().to_string();
+        let mut connection = self.lock()?;
+        let transaction = connection.transaction()?;
+        let timestamp = current_timestamp(&transaction)?;
+
+        transaction.execute(
             "INSERT INTO projects (
                 id, project_code, name, client_id, project_type, region, contract_type,
                 estimated_cost, current_stage, priority, assignee, expected_bid_date,
                 description, memo, url, archived, created_at, updated_at
              ) VALUES (
                 ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
-                ?13, ?14, ?15, ?16,
-                strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
-                strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                ?13, ?14, ?15, ?16, ?17, ?17
              )",
             params![
                 id,
@@ -135,11 +145,21 @@ impl Database {
                 input.memo.as_deref(),
                 input.url.as_deref(),
                 input.archived as i64,
+                timestamp.as_str(),
             ],
         )?;
 
-        get_project_from_connection(&connection, &id)?
-            .ok_or(rusqlite::Error::QueryReturnedNoRows.into())
+        transaction.execute(
+            "INSERT INTO project_stage_history(
+                id, project_id, from_stage, to_stage, changed_at, source, note, created_at
+             ) VALUES (?1, ?2, NULL, ?3, ?4, 'project-create', NULL, ?4)",
+            params![history_id, id, input.current_stage.as_str(), timestamp.as_str()],
+        )?;
+
+        let created = get_project_from_connection(&transaction, &id)?
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+        transaction.commit()?;
+        Ok(created)
     }
 
     pub fn replace_project(
@@ -147,8 +167,15 @@ impl Database {
         id: &str,
         input: NewProjectRecord,
     ) -> PersistenceResult<ProjectRecord> {
-        let connection = self.lock()?;
-        let changed = connection.execute(
+        let mut connection = self.lock()?;
+        let transaction = connection.transaction()?;
+        let existing = get_project_from_connection(&transaction, id)?
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+        let previous_stage = existing.project.current_stage.clone();
+        let stage_changed = previous_stage != input.current_stage;
+        let timestamp = current_timestamp(&transaction)?;
+
+        let changed = transaction.execute(
             "UPDATE projects SET
                 project_code = ?1,
                 name = ?2,
@@ -165,8 +192,8 @@ impl Database {
                 memo = ?13,
                 url = ?14,
                 archived = ?15,
-                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-             WHERE id = ?16",
+                updated_at = ?16
+             WHERE id = ?17",
             params![
                 input.project_code.as_deref(),
                 input.name.as_str(),
@@ -183,6 +210,7 @@ impl Database {
                 input.memo.as_deref(),
                 input.url.as_deref(),
                 input.archived as i64,
+                timestamp.as_str(),
                 id,
             ],
         )?;
@@ -191,8 +219,26 @@ impl Database {
             return Err(rusqlite::Error::QueryReturnedNoRows.into());
         }
 
-        get_project_from_connection(&connection, id)?
-            .ok_or(rusqlite::Error::QueryReturnedNoRows.into())
+        if stage_changed {
+            let history_id = Uuid::new_v4().to_string();
+            transaction.execute(
+                "INSERT INTO project_stage_history(
+                    id, project_id, from_stage, to_stage, changed_at, source, note, created_at
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, 'project-edit', NULL, ?5)",
+                params![
+                    history_id,
+                    id,
+                    previous_stage.as_str(),
+                    input.current_stage.as_str(),
+                    timestamp.as_str(),
+                ],
+            )?;
+        }
+
+        let updated = get_project_from_connection(&transaction, id)?
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+        transaction.commit()?;
+        Ok(updated)
     }
 
     pub fn set_project_archived(
