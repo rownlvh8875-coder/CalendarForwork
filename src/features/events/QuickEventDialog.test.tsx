@@ -1,7 +1,17 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ProjectRepository } from '../../repositories/ProjectRepository';
 import { createMemoryEventRepository } from '../../repositories/memoryEventRepository';
 import { createRuntimeMasterRepositories } from '../../repositories/runtimeMasterRepositories';
 import { QuickEventDialog } from './QuickEventDialog';
+
+const emptyProjectRepository: ProjectRepository = {
+  list: async () => [],
+  listStages: async () => [],
+  get: async () => null,
+  create: async () => { throw new Error('not used'); },
+  update: async () => { throw new Error('not used'); },
+  setArchived: async () => { throw new Error('not used'); },
+};
 
 describe('QuickEventDialog', () => {
   test('requires an event title before saving', async () => {
@@ -82,5 +92,19 @@ describe('QuickEventDialog', () => {
         clientName: '가상 공공 발주처 A',
       });
     });
+  });
+
+  test('shows a clear empty state when no master project exists', async () => {
+    render(
+      <QuickEventDialog
+        repository={createMemoryEventRepository([])}
+        projectRepository={emptyProjectRepository}
+        initialDateKey="2026-09-11"
+        onClose={() => undefined}
+      />,
+    );
+
+    expect(await screen.findByRole('option', { name: '등록된 사업 없음' })).toBeDisabled();
+    expect(screen.getByLabelText('사업 연결')).toHaveValue('');
   });
 });
