@@ -9,6 +9,7 @@ import './styles/dialogs.css';
 import './styles/today.css';
 import './styles/masters.css';
 import './styles/clients.css';
+import './styles/timeline.css';
 
 const rootElement = document.getElementById('root');
 
