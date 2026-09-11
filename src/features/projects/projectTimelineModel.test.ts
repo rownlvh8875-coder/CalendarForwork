@@ -80,6 +80,28 @@ describe('project timeline read model', () => {
     expect(result[0].at).toBe(dueEvent.deadlineAt);
   });
 
+  test('orders mixed UTC offsets by the actual instant rather than ISO text', () => {
+    const offsetEvent: CalendarEvent = {
+      ...baseEvent,
+      id: 'event-offset',
+      startAt: '2026-09-11T09:00:00+09:00',
+      completedAt: null,
+    };
+    const laterStage: ProjectStageHistory = {
+      ...changed,
+      id: 'history-later-instant',
+      changedAt: '2026-09-11T01:30:00Z',
+      createdAt: '2026-09-11T01:30:00Z',
+    };
+
+    const result = buildProjectTimeline([laterStage], [offsetEvent]);
+
+    expect(result.map((item) => `${item.kind}:${item.id}`)).toEqual([
+      'stage:history-later-instant',
+      'event:event-offset',
+    ]);
+  });
+
   test('uses kind and id as deterministic tie-breakers without mutating inputs', () => {
     const tiedEvent: CalendarEvent = {
       ...baseEvent,
