@@ -33,6 +33,20 @@ describe('memory event repository', () => {
     expect(second[0].title).toBe('PQ 제출');
   });
 
+  test('lists only events linked to the requested project', async () => {
+    const repository = createMemoryEventRepository([
+      baseEvent,
+      { ...baseEvent, id: 'event-2', title: '다른 사업', projectId: 'project-2' },
+      { ...baseEvent, id: 'event-3', title: '미연결', projectId: null },
+      { ...baseEvent, id: 'event-4', title: '같은 사업 두번째', startAt: '2026-09-12T09:00:00+09:00' },
+    ]);
+
+    const rows = await repository.listByProject('project-1');
+    expect(rows.map((event) => event.id)).toEqual(['event-1', 'event-4']);
+    rows[0].title = '외부 수정';
+    expect((await repository.listByProject('project-1'))[0].title).toBe('PQ 제출');
+  });
+
   test('creates, updates and removes an event', async () => {
     const repository = createMemoryEventRepository([]);
     const input: NewCalendarEvent = {
