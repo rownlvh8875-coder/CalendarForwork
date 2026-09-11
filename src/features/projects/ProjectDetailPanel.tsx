@@ -5,14 +5,22 @@ interface Props {
   stages: ProjectStage[];
   onClose: () => void;
   onArchive: () => void;
+  onEdit?: () => void;
 }
+
+const priorityLabel: Record<Project['priority'], string> = {
+  critical: '긴급',
+  high: '높음',
+  normal: '보통',
+  low: '낮음',
+};
 
 function formatCost(value?: number | null): string {
   if (value == null) return '-';
   return `${Math.round(value / 100_000_000).toLocaleString('ko-KR')}억원`;
 }
 
-export function ProjectDetailPanel({ project, stages, onClose, onArchive }: Props) {
+export function ProjectDetailPanel({ project, stages, onClose, onArchive, onEdit }: Props) {
   const stage = stages.find((item) => item.key === project.currentStage)?.name ?? project.currentStage;
 
   return (
@@ -27,7 +35,7 @@ export function ProjectDetailPanel({ project, stages, onClose, onArchive }: Prop
 
       <div className="master-detail-status-row">
         <span className="status-badge">{stage}</span>
-        <span className={`priority-badge priority-${project.priority}`}>{project.priority}</span>
+        <span className={`priority-badge priority-${project.priority}`}>{priorityLabel[project.priority]}</span>
       </div>
 
       <dl className="master-detail-list">
@@ -39,14 +47,15 @@ export function ProjectDetailPanel({ project, stages, onClose, onArchive }: Prop
         <div><dt>공사비</dt><dd>{formatCost(project.estimatedCost)}</dd></div>
         <div><dt>담당자</dt><dd>{project.assignee ?? '-'}</dd></div>
         <div><dt>입찰예정일</dt><dd>{project.expectedBidDate ?? '-'}</dd></div>
-        <div><dt>설명</dt><dd>{project.description ?? '-'}</dd></div>
-        <div><dt>메모</dt><dd>{project.memo ?? '-'}</dd></div>
-        <div><dt>URL</dt><dd>{project.url ?? '-'}</dd></div>
+        <div className="master-detail-full"><dt>사업개요</dt><dd>{project.description ?? '-'}</dd></div>
+        <div className="master-detail-full"><dt>영업 메모</dt><dd>{project.memo ?? '-'}</dd></div>
+        <div className="master-detail-full"><dt>URL</dt><dd className="break-anywhere">{project.url ?? '-'}</dd></div>
         <div><dt>수정일</dt><dd>{project.updatedAt.slice(0, 10)}</dd></div>
       </dl>
 
       <div className="master-detail-actions">
-        <button type="button" className="secondary-action" onClick={onArchive}>보관</button>
+        <button type="button" className="secondary-action danger-secondary" onClick={onArchive}>보관</button>
+        {onEdit ? <button type="button" className="primary-action" onClick={onEdit}>수정</button> : null}
       </div>
     </aside>
   );
