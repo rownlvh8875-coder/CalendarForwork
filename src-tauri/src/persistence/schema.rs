@@ -182,12 +182,12 @@ mod tests {
         let stage_count: i64 = connection
             .query_row("SELECT COUNT(*) FROM project_stages", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(stage_count, 16);
+        assert_eq!(stage_count, 17);
 
         migrate(&connection).unwrap();
         let stage_count_after_second_run: i64 = connection
             .query_row("SELECT COUNT(*) FROM project_stages", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(stage_count_after_second_run, 16);
+        assert_eq!(stage_count_after_second_run, 17);
     }
 }
