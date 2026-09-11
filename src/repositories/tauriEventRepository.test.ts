@@ -50,6 +50,7 @@ describe('Tauri event repository', () => {
       calls.push([command, args]);
       if (command === 'events_list_between') return [currentEvent] as T;
       if (command === 'events_list_upcoming') return [currentEvent] as T;
+      if (command === 'events_list_by_project') return [currentEvent] as T;
       if (command === 'events_create') return { ...currentEvent, ...newEvent } as T;
       throw new Error(`unexpected command: ${command}`);
     };
@@ -57,11 +58,13 @@ describe('Tauri event repository', () => {
 
     await repository.listBetween('2026-09-01', '2026-09-30');
     await repository.listUpcoming('2026-09-10T18:00:00+09:00', 7);
+    await repository.listByProject('project-1');
     await repository.create(newEvent);
 
     expect(calls[0]).toEqual(['events_list_between', { startIso: '2026-09-01', endIso: '2026-09-30' }]);
     expect(calls[1]).toEqual(['events_list_upcoming', { fromIso: '2026-09-10T18:00:00+09:00', days: 7 }]);
-    expect(calls[2]).toEqual(['events_create', { event: newEvent }]);
+    expect(calls[2]).toEqual(['events_list_by_project', { projectId: 'project-1' }]);
+    expect(calls[3]).toEqual(['events_create', { event: newEvent }]);
   });
 
   test('merges update patches before replacing the full event payload', async () => {
