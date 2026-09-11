@@ -1,0 +1,139 @@
+.master-detail-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin: 14px 0 16px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+.master-detail-tabs button {
+  min-height: 34px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.master-detail-tabs button:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.master-detail-tabs button.is-active {
+  background: var(--surface);
+  color: var(--text-strong);
+  box-shadow: 0 1px 3px rgba(20, 28, 45, 0.08);
+}
+
+.project-timeline-state {
+  min-height: 160px;
+  display: grid;
+  place-items: center;
+  padding: 20px 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.project-timeline-error {
+  color: var(--danger);
+}
+
+.project-timeline-feed {
+  position: relative;
+  display: grid;
+  gap: 0;
+  margin: 2px 0 18px;
+  padding-left: 6px;
+}
+
+.project-timeline-feed::before {
+  content: "";
+  position: absolute;
+  top: 13px;
+  bottom: 13px;
+  left: 12px;
+  width: 1px;
+  background: var(--border-strong);
+}
+
+.project-timeline-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 8px;
+  padding: 9px 0;
+}
+
+.project-timeline-marker {
+  position: relative;
+  z-index: 1;
+  width: 9px;
+  height: 9px;
+  margin: 5px 0 0 2px;
+  border: 2px solid var(--surface);
+  border-radius: 999px;
+  background: var(--text-muted);
+  box-shadow: 0 0 0 1px var(--border-strong);
+}
+
+.project-timeline-item.is-stage .project-timeline-marker {
+  background: var(--accent);
+}
+
+.project-timeline-item.is-event .project-timeline-marker {
+  background: var(--success);
+}
+
+.project-timeline-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.project-timeline-eyebrow {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.project-timeline-copy > strong {
+  color: var(--text-strong);
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.project-timeline-copy time,
+.project-timeline-meta {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.project-timeline-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.timeline-dday {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 750;
+}
