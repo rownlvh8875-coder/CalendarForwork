@@ -55,4 +55,18 @@ describe('CalendarForwork application shell', () => {
     expect(await screen.findByRole('heading', { name: '발주처 Master' })).toBeInTheDocument();
     expect(screen.getByText('가상 공공 발주처 A')).toBeInTheDocument();
   });
+
+  test('opens a project timeline with stage history and linked events', async () => {
+    render(<App />);
+    await screen.findByRole('grid', { name: '월간 일정' });
+    const navigation = screen.getByLabelText('주요 메뉴');
+
+    fireEvent.click(within(navigation).getByRole('button', { name: '사업관리' }));
+    fireEvent.click(await screen.findByText('가상 A철도 차량기지 건설공사'));
+    fireEvent.click(screen.getByRole('button', { name: 'Timeline' }));
+
+    expect(await screen.findByText('사업 시작')).toBeInTheDocument();
+    expect(screen.getByText('PQ 제출서류 검토')).toBeInTheDocument();
+    expect(screen.getByText('D-DAY')).toBeInTheDocument();
+  });
 });
