@@ -2,9 +2,12 @@ import { useMemo, useState } from 'react';
 import { AppSidebar, type AppView } from '../components/AppSidebar';
 import { toDateKey } from '../domain/date';
 import { CalendarPage } from '../features/calendar/CalendarPage';
+import { ClientsPage } from '../features/clients/ClientsPage';
 import { QuickEventDialog } from '../features/events/QuickEventDialog';
+import { ProjectsPage } from '../features/projects/ProjectsPage';
 import { TodayPage } from '../features/today/TodayPage';
 import { createRuntimeEventRepository } from '../repositories/runtimeEventRepository';
+import { createRuntimeMasterRepositories } from '../repositories/runtimeMasterRepositories';
 
 const viewCopy: Record<AppView, { title: string; subtitle: string }> = {
   today: { title: '오늘', subtitle: '마감과 우선순위를 빠르게 확인합니다.' },
@@ -19,6 +22,7 @@ const viewCopy: Record<AppView, { title: string; subtitle: string }> = {
 export function App() {
   const appNow = useMemo(() => new Date(), []);
   const repository = useMemo(() => createRuntimeEventRepository(appNow), [appNow]);
+  const masterRepositories = useMemo(() => createRuntimeMasterRepositories(appNow), [appNow]);
   const [activeView, setActiveView] = useState<AppView>('calendar');
   const [quickAddDateKey, setQuickAddDateKey] = useState<string | null>(null);
   const [calendarRevision, setCalendarRevision] = useState(0);
@@ -42,6 +46,21 @@ export function App() {
     );
   } else if (activeView === 'today') {
     content = <TodayPage repository={repository} now={appNow} />;
+  } else if (activeView === 'projects') {
+    content = (
+      <ProjectsPage
+        projectRepository={masterRepositories.projects}
+        clientRepository={masterRepositories.clients}
+        now={appNow}
+      />
+    );
+  } else if (activeView === 'clients') {
+    content = (
+      <ClientsPage
+        clientRepository={masterRepositories.clients}
+        projectRepository={masterRepositories.projects}
+      />
+    );
   } else {
     content = (
       <div className="empty-view">
@@ -89,6 +108,7 @@ export function App() {
       {quickAddDateKey ? (
         <QuickEventDialog
           repository={repository}
+          projectRepository={masterRepositories.projects}
           initialDateKey={quickAddDateKey}
           onClose={() => setQuickAddDateKey(null)}
           onCreated={() => setCalendarRevision((revision) => revision + 1)}
