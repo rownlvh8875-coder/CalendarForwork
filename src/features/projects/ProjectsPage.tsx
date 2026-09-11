@@ -2,13 +2,17 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Client } from '../../domain/clients';
 import type { Project, ProjectStage } from '../../domain/projects';
 import type { ClientRepository } from '../../repositories/ClientRepository';
+import type { EventRepository } from '../../repositories/EventRepository';
 import type { ProjectRepository } from '../../repositories/ProjectRepository';
+import type { ProjectTimelineRepository } from '../../repositories/ProjectTimelineRepository';
 import { ProjectDetailPanel } from './ProjectDetailPanel';
 import { ProjectEditorDialog } from './ProjectEditorDialog';
 
 interface Props {
   projectRepository: ProjectRepository;
   clientRepository: ClientRepository;
+  timelineRepository: ProjectTimelineRepository;
+  eventRepository: EventRepository;
   now?: Date;
 }
 
@@ -38,7 +42,13 @@ function dateDiffDays(from: Date, dateKey?: string | null): number | null {
   return Math.ceil((target.getTime() - start.getTime()) / 86_400_000);
 }
 
-export function ProjectsPage({ projectRepository, clientRepository, now = new Date() }: Props) {
+export function ProjectsPage({
+  projectRepository,
+  clientRepository,
+  timelineRepository,
+  eventRepository,
+  now = new Date(),
+}: Props) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [stages, setStages] = useState<ProjectStage[]>([]);
@@ -199,6 +209,9 @@ export function ProjectsPage({ projectRepository, clientRepository, now = new Da
           <ProjectDetailPanel
             project={selected}
             stages={stages}
+            timelineRepository={timelineRepository}
+            eventRepository={eventRepository}
+            now={now}
             onClose={() => setSelected(null)}
             onArchive={() => void archiveSelected()}
             onEdit={() => setEditing(selected)}
