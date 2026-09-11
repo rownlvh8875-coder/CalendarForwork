@@ -1,5 +1,5 @@
 use crate::persistence::{
-    master_types::NewProjectRecord,
+    master_types::{NewClientRecord, NewProjectRecord},
     types::NewEventRecord,
     Database,
 };
@@ -21,6 +21,18 @@ fn sample_project(name: &str, code: &str, stage: &str) -> NewProjectRecord {
         memo: None,
         url: None,
         archived: false,
+    }
+}
+
+fn sample_client(name: &str) -> NewClientRecord {
+    NewClientRecord {
+        name: name.into(),
+        category: Some("공공기관".into()),
+        department: None,
+        contact_name: None,
+        phone: None,
+        email: None,
+        memo: None,
     }
 }
 
@@ -102,6 +114,28 @@ fn failed_stage_change_leaves_project_and_history_unchanged() {
     let history = db.list_project_stage_history(&created.id).unwrap();
     assert_eq!(history.len(), 1);
     assert_eq!(history[0].to_stage, "planned-order");
+}
+
+#[test]
+fn archive_and_client_removal_preserve_project_stage_history() {
+    let db = Database::open_in_memory().unwrap();
+    let client = db.create_client(sample_client("발주처 A")).unwrap();
+    let mut input = sample_project("이력 보존 사업", "KEEP-HISTORY", "pq");
+    input.client_id = Some(client.id.clone());
+    let created = db.create_project(input).unwrap();
+
+    db.set_project_archived(&created.id, true).unwrap();
+    assert_eq!(db.list_project_stage_history(&created.id).unwrap().len(), 1);
+
+    db.remove_client(&client.id).unwrap();
+    let project = db.get_project(&created.id).unwrap().unwrap();
+    assert!(project.project.archived);
+    assert!(project.project.client_id.is_none());
+
+    let history = db.list_project_stage_history(&created.id).unwrap();
+    assert_eq!(history.len(), 1);
+    assert_eq!(history[0].source, "project-create");
+    assert_eq!(history[0].to_stage, "pq");
 }
 
 #[test]
