@@ -98,7 +98,8 @@ INSERT OR IGNORE INTO project_stages(key, name, sort_order, is_active) VALUES
   ('won', '수주', 130, 1),
   ('lost', '탈락', 140, 1),
   ('hold', '보류', 150, 1),
-  ('closed', '종료', 160, 1);
+  ('closed', '종료', 160, 1),
+  ('cancelled', '취소', 170, 1);
 "#;
 
 pub fn migrate(connection: &Connection) -> rusqlite::Result<()> {
