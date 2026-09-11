@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createMemoryEventRepository } from '../../repositories/memoryEventRepository';
+import { createRuntimeMasterRepositories } from '../../repositories/runtimeMasterRepositories';
 import { QuickEventDialog } from './QuickEventDialog';
 
 describe('QuickEventDialog', () => {
@@ -53,5 +54,33 @@ describe('QuickEventDialog', () => {
       priority: 'high',
     });
     expect(stored[0].deadlineAt).toContain('2026-09-10T17:00:00');
+  });
+
+  test('links an event to a selected master project', async () => {
+    const repository = createMemoryEventRepository([]);
+    const masters = createRuntimeMasterRepositories(new Date('2026-09-11T09:00:00+09:00'), false);
+
+    render(
+      <QuickEventDialog
+        repository={repository}
+        projectRepository={masters.projects}
+        initialDateKey="2026-09-11"
+        onClose={() => undefined}
+      />,
+    );
+
+    await screen.findByRole('option', { name: '가상 A철도 차량기지 건설공사 · 가상 공공 발주처 A' });
+    fireEvent.change(screen.getByLabelText('사업 연결'), { target: { value: 'demo-project-a' } });
+    fireEvent.change(screen.getByLabelText('일정명'), { target: { value: '사업 연계 일정' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+
+    await waitFor(async () => {
+      const stored = await repository.listBetween('2026-09-11', '2026-09-11');
+      expect(stored[0]).toMatchObject({
+        projectId: 'demo-project-a',
+        projectName: '가상 A철도 차량기지 건설공사',
+        clientName: '가상 공공 발주처 A',
+      });
+    });
   });
 });
