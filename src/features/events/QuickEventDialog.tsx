@@ -110,8 +110,8 @@ export function QuickEventDialog({ repository, projectRepository, initialDateKey
     try {
       const created = await repository.create({
         projectId: selectedProject?.id ?? null,
-        projectName: selectedProject?.name ?? projectName.trim() || null,
-        clientName: selectedProject?.clientName ?? clientName.trim() || null,
+        projectName: selectedProject?.name ?? (projectName.trim() || null),
+        clientName: selectedProject?.clientName ?? (clientName.trim() || null),
         categoryId: category.id,
         categoryKey: category.key,
         categoryName: category.name,
