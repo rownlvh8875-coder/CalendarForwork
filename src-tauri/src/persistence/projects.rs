@@ -272,9 +272,11 @@ mod tests {
         assert_eq!(loaded, created);
 
         let stages = db.list_project_stages().unwrap();
-        assert_eq!(stages.len(), 16);
+        assert_eq!(stages.len(), 17);
         assert_eq!(stages[0].key, "interest");
         assert_eq!(stages[0].name, "관심사업");
+        assert_eq!(stages[16].key, "cancelled");
+        assert_eq!(stages[16].name, "취소");
 
         thread::sleep(Duration::from_millis(5));
         let mut replacement = created.project.clone();
