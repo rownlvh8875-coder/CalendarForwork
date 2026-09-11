@@ -6,11 +6,11 @@
 
 ## 현재 개발 단계
 
-**UI MVP + SQLite 영구저장 단계**
+**UI MVP + SQLite 일정/사업/발주처 Master 단계**
 
-현재 UI vertical slice와 Tauri/SQLite 영구저장 계층이 구현되어 있습니다.
+현재 월간 일정관리, SQLite 영구저장, 사업 Master, 발주처 Master, 일정-사업 연결까지 하나의 동작 가능한 흐름으로 구현되어 있습니다.
 
-### 구현 완료
+## 구현 완료
 
 - React + TypeScript + Vite 기반 UI
 - Tauri v2 Windows 데스크톱 shell
@@ -22,24 +22,36 @@
 - 중요도 및 고정 일정 우선 정렬
 - D-Day / D-N / D+N 마감 표시
 - 날짜당 일정 3건 우선 표시 + `+N개 더보기`
-- 일정 클릭 시 우측 상세 Side Panel
-- 상세 패널에서 완료 처리 / 삭제 / Esc 닫기
-- 빠른 일정 등록
-  - 상단 `+ 일정 등록`
-  - 날짜 셀 더블클릭
-  - 일정명 / 날짜 / 시간 / 구분 / 중요도 / 마감시간 / 사업명 / 발주처 입력
-- 등록 후 월간 캘린더 즉시 갱신
+- 일정 상세 우측 Side Panel
+- 빠른 일정 등록과 등록 후 월간 캘린더 즉시 갱신
 - `오늘의 업무` 대시보드
-  - 마감 초과
-  - 긴급
-  - 이번 주
-  - 발주예정
-- `EventRepository` 추상화
-- Tauri runtime용 SQLite `EventRepository` adapter
-- 브라우저/Vitest용 Memory Repository
-- SQLite schema migration version 관리
-- 일정 생성 / 조회 / 기간조회 / 예정조회 / 수정 / 삭제 영구저장
-- 실제 SQLite 파일을 닫고 다시 열어도 일정이 유지되는 durability 자동 테스트
+- SQLite 일정 생성 / 조회 / 기간조회 / 예정조회 / 수정 / 삭제
+- 실제 SQLite 파일 재오픈 durability 자동 테스트
+- 사업 Master
+  - 사업코드 / 사업명 / 발주처 / 공사유형 / 지역 / 계약방식 / 공사비
+  - 현재단계 / 중요도 / 담당자 / 입찰예정일 / 설명 / 메모 / URL
+  - 검색 / 단계필터 / 요약지표 / 우측 상세패널
+  - 물리 삭제 대신 보관(archive)
+- 발주처 Master
+  - 발주처명 / 구분 / 부서 / 담당자 / 연락처 / 이메일 / 메모
+  - 검색 / 구분필터 / 연결사업 수 표시
+  - 발주처 삭제 시 연결 사업은 유지하고 발주처 연결만 해제
+- 일정 등록 시 등록된 사업 선택
+  - `projectId` 저장
+  - 사업명 및 발주처명 snapshot 저장
+  - 사업을 선택하지 않은 일정도 등록 가능
+- SQLite schema migration version 2
+  - `events`
+  - `clients`
+  - `project_stages`
+  - `projects`
+- 사업 진행단계 17종
+  - 관심사업 / 계획 / 발주예정 / 입찰공고 / PQ / SOQ
+  - 기본설계 / 실시설계 / 설계심의 / 가격입찰 / 개찰 / 우선협상
+  - 수주 / 탈락 / 보류 / 종료 / 취소
+- `EventRepository`, `ClientRepository`, `ProjectRepository` 추상화
+- Tauri IPC + Rust + rusqlite 영구저장 adapter
+- 브라우저/Vitest용 공유 Memory Repository
 - GitHub Actions 프론트엔드 + Windows Tauri/Rust 자동검증
 
 ## 데이터 저장 방식
@@ -58,13 +70,13 @@ app_data_dir()/calendarforwork.sqlite3
 
 SQLite는 `rusqlite`의 `bundled` 기능을 사용하므로 별도의 SQLite DLL 설치를 전제로 하지 않습니다. DB open 시 foreign key를 활성화하고 파일 DB는 WAL journal mode와 `synchronous = NORMAL`을 사용합니다.
 
-실제 Tauri 앱의 빈 DB에는 UI 확인용 데모 일정을 자동 삽입하지 않습니다.
+실제 Tauri 앱의 빈 DB에는 UI 확인용 가상 사업·발주처·일정을 자동 삽입하지 않습니다.
 
 ### 브라우저 개발 / Vitest
 
-`npm run dev`로 브라우저에서 확인하거나 Vitest를 실행할 때는 기존 Memory Repository와 가상 데모 데이터를 사용합니다.
+`npm run dev`로 브라우저에서 확인하거나 Vitest를 실행할 때는 Memory Repository와 명시적으로 **가상**이라고 표시한 데모 데이터를 사용합니다.
 
-이 모드의 데이터는 브라우저 새 실행 시 유지되지 않으며, SQLite 영구저장 동작을 의미하지 않습니다. 예시 사업명과 발주처는 UI 확인용 가상 데이터입니다.
+이 데이터는 브라우저 새 실행 시 유지되지 않으며 실제 SQLite 영구저장 데이터가 아닙니다.
 
 ## 저장 계층 구조
 
@@ -73,47 +85,43 @@ React UI
    ↓
 Domain / Application Logic
    ↓
-EventRepository Interface
-   ├─ Browser / Vitest → Memory Repository
-   └─ Tauri Desktop   → TauriEventRepository
-                           ↓ invoke()
-                       Rust Tauri Commands
-                           ↓
-                       SQLite Persistence
-                           ↓
-                       calendarforwork.sqlite3
+Repository Interfaces
+   ├─ EventRepository
+   ├─ ClientRepository
+   └─ ProjectRepository
+          │
+          ├─ Browser / Vitest → shared Memory Repositories
+          │
+          └─ Tauri Desktop   → Tauri Repository Adapters
+                                  ↓ invoke()
+                              Rust Tauri Commands
+                                  ↓
+                              SQLite Persistence
+                                  ↓
+                              calendarforwork.sqlite3
 
 향후 팀 버전
-EventRepository → API Repository → Server → PostgreSQL
+Repository Interface → API Repository → Server → PostgreSQL
 ```
 
 UI와 업무 규칙이 SQLite 구현에 직접 종속되지 않도록 구성하여 향후 팀 버전에서도 화면과 핵심 로직을 최대한 재사용합니다.
 
-## 현재 SQLite 일정 데이터
+## 관계 규칙
 
-현재 SQLite `events` 테이블은 다음 정보를 영구 저장합니다.
-
-- 사업 ID / 사업명 / 발주처명
-- 일정 분류 ID / key / 이름
-- 일정명 / 설명
-- 시작일시 / 종료일시 / 마감일시
-- 종일 일정 여부
-- 진행상태 / 중요도
-- 담당자 / 위치 / URL / 메모
-- 중요일정 Pin 여부
-- 완료시각
-- 생성시각 / 수정시각
-
-`deadline_at`과 일반 `start_at` / `end_at`은 별도 필드로 관리합니다.
+- Project와 Event는 별도 Entity입니다.
+- Project는 `client_id`로 Client를 참조합니다.
+- Client 삭제 시 연결된 Project의 `client_id`는 `NULL`이 됩니다.
+- Client 삭제가 Project나 Event를 삭제하지는 않습니다.
+- Project는 기본적으로 삭제 대신 `archived` 상태로 보관합니다.
+- Event에 연결된 사업명·발주처명은 일정 생성 시 snapshot으로 함께 저장합니다.
 
 ## 아직 구현하지 않은 주요 기능
 
-- 사업관리 Master / 사업별 Timeline
-- 발주처 Master
+- 사업별 단계 Timeline
 - 주간 캘린더 / 목록형 일정 화면
 - 일정 Full Form 편집 UX 고도화
 - Drag & Drop 일정 이동 및 Undo
-- 통합검색 / 상세 필터
+- 통합검색 / 상세 필터 / 중요일정 전용 화면
 - Excel Import Wizard / Excel Export
 - 첨부파일 관리
 - Windows 로컬 알림
@@ -188,16 +196,16 @@ Windows Desktop job:
 - [V1 설계명세](docs/superpowers/specs/2026-09-10-calendar-for-work-design.md)
 - [UI MVP 구현계획](docs/superpowers/plans/2026-09-10-calendar-ui-mvp.md)
 - [SQLite 영구저장 구현계획](docs/superpowers/plans/2026-09-10-sqlite-persistence.md)
+- [사업·발주처 Master 구현계획](docs/superpowers/plans/2026-09-11-project-client-master.md)
 
 ## 다음 개발 우선순위
 
-1. 사업 / 발주처 Master 관리
-2. 사업별 단계 Timeline
-3. Excel Import / Export
-4. 검색 / 필터 / 중요일정 화면
-5. Windows 알림 및 자동백업
-6. 설치파일 패키징
-7. 팀 공용 API / PostgreSQL 기반 협업형 구조 확장
+1. 사업별 단계 Timeline
+2. Excel Import / Export
+3. 통합검색 / 상세 필터 / 중요일정 화면
+4. Windows 알림 및 자동백업
+5. 설치파일 패키징
+6. 팀 공용 API / PostgreSQL 기반 협업형 구조 확장
 
 ## 제품 원칙
 
