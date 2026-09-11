@@ -102,6 +102,38 @@ INSERT OR IGNORE INTO project_stages(key, name, sort_order, is_active) VALUES
   ('cancelled', '취소', 170, 1);
 "#;
 
+const MIGRATION_3: &str = r#"
+CREATE TABLE IF NOT EXISTS project_stage_history (
+  id TEXT PRIMARY KEY NOT NULL,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  from_stage TEXT NULL REFERENCES project_stages(key),
+  to_stage TEXT NOT NULL REFERENCES project_stages(key),
+  changed_at TEXT NOT NULL,
+  source TEXT NOT NULL CHECK (
+    source IN ('project-create', 'project-edit', 'migration-baseline')
+  ),
+  note TEXT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_stage_history_project
+ON project_stage_history(project_id, changed_at DESC);
+
+INSERT OR IGNORE INTO project_stage_history(
+  id, project_id, from_stage, to_stage, changed_at, source, note, created_at
+)
+SELECT
+  'baseline:' || id,
+  id,
+  NULL,
+  current_stage,
+  strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+  'migration-baseline',
+  NULL,
+  strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+FROM projects;
+"#;
+
 pub fn migrate(connection: &Connection) -> rusqlite::Result<()> {
     let transaction = connection.unchecked_transaction()?;
 
@@ -132,6 +164,15 @@ pub fn migrate(connection: &Connection) -> rusqlite::Result<()> {
         transaction.execute(
             "INSERT INTO schema_migrations(version, applied_at)
              VALUES (2, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+            [],
+        )?;
+    }
+
+    if current_version < 3 {
+        transaction.execute_batch(MIGRATION_3)?;
+        transaction.execute(
+            "INSERT INTO schema_migrations(version, applied_at)
+             VALUES (3, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
             [],
         )?;
     }
