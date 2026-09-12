@@ -9,6 +9,8 @@ pub mod types;
 pub mod upcoming;
 
 #[cfg(test)]
+mod import_audit_tests;
+#[cfg(test)]
 mod timeline_tests;
 #[cfg(test)]
 mod upcoming_tests;
