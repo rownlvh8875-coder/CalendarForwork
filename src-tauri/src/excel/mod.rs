@@ -8,4 +8,6 @@ mod mapping_tests;
 #[cfg(test)]
 mod normalize_tests;
 #[cfg(test)]
+mod projects_tests;
+#[cfg(test)]
 mod workbook_tests;
