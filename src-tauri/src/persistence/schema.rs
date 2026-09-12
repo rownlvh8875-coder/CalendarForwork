@@ -134,6 +134,40 @@ SELECT
 FROM projects;
 "#;
 
+const MIGRATION_4: &str = r#"
+CREATE TABLE IF NOT EXISTS import_batches (
+  id TEXT PRIMARY KEY NOT NULL,
+  dataset TEXT NOT NULL CHECK (dataset IN ('projects', 'events')),
+  source_file_name TEXT NOT NULL,
+  sheet_name TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('started', 'completed', 'failed')),
+  total_rows INTEGER NOT NULL DEFAULT 0 CHECK (total_rows >= 0),
+  imported_rows INTEGER NOT NULL DEFAULT 0 CHECK (imported_rows >= 0),
+  duplicate_rows INTEGER NOT NULL DEFAULT 0 CHECK (duplicate_rows >= 0),
+  invalid_rows INTEGER NOT NULL DEFAULT 0 CHECK (invalid_rows >= 0),
+  skipped_rows INTEGER NOT NULL DEFAULT 0 CHECK (skipped_rows >= 0),
+  error_message TEXT NULL,
+  started_at TEXT NOT NULL,
+  completed_at TEXT NULL
+);
+
+CREATE TABLE IF NOT EXISTS import_rows (
+  id TEXT PRIMARY KEY NOT NULL,
+  batch_id TEXT NOT NULL REFERENCES import_batches(id) ON DELETE CASCADE,
+  source_row_number INTEGER NOT NULL CHECK (source_row_number >= 1),
+  status TEXT NOT NULL CHECK (status IN ('imported', 'duplicate', 'invalid', 'skipped')),
+  target_id TEXT NULL,
+  source_key TEXT NULL,
+  message TEXT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_import_batches_started_at
+ON import_batches(started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_import_rows_batch
+ON import_rows(batch_id, source_row_number ASC);
+"#;
+
 pub fn migrate(connection: &Connection) -> rusqlite::Result<()> {
     let transaction = connection.unchecked_transaction()?;
 
@@ -177,6 +211,15 @@ pub fn migrate(connection: &Connection) -> rusqlite::Result<()> {
         )?;
     }
 
+    if current_version < 4 {
+        transaction.execute_batch(MIGRATION_4)?;
+        transaction.execute(
+            "INSERT INTO schema_migrations(version, applied_at)
+             VALUES (4, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+            [],
+        )?;
+    }
+
     transaction.commit()
 }
 
@@ -208,7 +251,7 @@ mod tests {
         let version: i64 = connection
             .query_row("SELECT MAX(version) FROM schema_migrations", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 3);
+        assert_eq!(version, 4);
 
         for table in ["clients", "project_stages", "projects"] {
             let count: i64 = connection
@@ -265,7 +308,7 @@ mod tests {
         let version: i64 = connection
             .query_row("SELECT MAX(version) FROM schema_migrations", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 3);
+        assert_eq!(version, 4);
 
         let table_count: i64 = connection
             .query_row(
