@@ -1,5 +1,6 @@
 pub mod clients;
 pub mod events;
+pub mod import_audit;
 pub mod master_types;
 pub mod projects;
 pub mod schema;
