@@ -56,7 +56,7 @@ fn project_timeline_command_entrypoint_is_exposed() {
 
 #[test]
 fn excel_runtime_dependencies_are_linked() {
-    let _ = tauri_plugin_dialog::init;
+    let _ = tauri_plugin_dialog::init::<tauri::Wry>;
     let _ = rust_xlsxwriter::Workbook::new;
     let _ = std::any::type_name::<calamine::Data>();
 }
