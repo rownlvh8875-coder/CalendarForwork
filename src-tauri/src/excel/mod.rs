@@ -1,3 +1,5 @@
+pub mod mapping;
+pub mod normalize;
 pub mod types;
 pub mod workbook;
 
