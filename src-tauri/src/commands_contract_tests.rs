@@ -53,3 +53,10 @@ fn master_command_entrypoints_are_exposed() {
 fn project_timeline_command_entrypoint_is_exposed() {
     let _ = project_stage_history_list;
 }
+
+#[test]
+fn excel_runtime_dependencies_are_linked() {
+    let _ = tauri_plugin_dialog::init;
+    let _ = rust_xlsxwriter::Workbook::new;
+    let _ = std::any::type_name::<calamine::Data>();
+}
